@@ -13,7 +13,9 @@
     "test": "node --test tests/*.test.mjs",
     "lint": "eslint components/earth-record.tsx app/api/orbit/route.ts lib/mission.ts lib/orbit.ts",
     "dev:app": "next dev --webpack --hostname 127.0.0.1 --port 3300",
-    "build:next": "next build --webpack"
+    "build:next": "next build --webpack",
+    "build:pages": "vite build --config vite.pages.config.ts",
+    "preview:pages": "vite preview --config vite.pages.config.ts --host 127.0.0.1 --port 3304"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

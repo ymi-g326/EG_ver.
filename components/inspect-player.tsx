@@ -1,5 +1,7 @@
 "use client";
 
+import { appPath } from "@/lib/app-path";
+
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { ArrowRight, Cloud, Wind, Mountain, AudioLines, Info, Play, Pause, Volume2, Radio } from "lucide-react";
 import { VOICE_COLORS } from "@/lib/voice-colors";
@@ -46,9 +48,9 @@ export default function InspectPlayer(p: Props) {
   const rest=p.listeningMode==='ambient'&&f.source!=='audition';
   return <main className="groove-v2 v2-inspect" aria-label="地球の音を調べる">
     <header className="v2-header">
-      <a className="v2-brand" href="/" aria-label="EARTH GROOVE V2 ホーム">
+      <a className="v2-brand" href={appPath("/")} aria-label="EARTH GROOVE V2 ホーム">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/earth-groove-logo.svg" alt="EARTH GROOVE"/><span>VOL. 02</span>
+        <img src={appPath("/earth-groove-logo.svg")} alt="EARTH GROOVE"/><span>VOL. 02</span>
       </a>
       <div className="v2-view-space" aria-hidden="true" />
       <div className="v2-header-right"><div className="v2-mission-brand"><MissionMark /><small>N.U COSMIC CAMPUS</small></div><details className="v2-inspect-info"><summary aria-label="データについて"><Info size={19}/></summary><div><strong>ONE EARTH. TWO VIEWS.</strong><p>TOUCHと同じデータ・同じ演奏です。</p><p>位置は公開軌道から推定。画像はNASAの観測、気象は地表のモデルです。衛星からの直接受信ではありません。</p><p>EXPLOREは選択地点、LOCALとAUDITIONは合成条件を表示します。</p><small>TLE {p.orbitEpoch?.slice(0,10)??"—"}<br/>IMAGE {p.observation??"—"}<br/>WEATHER {p.weatherTime??"—"}</small></div></details></div>

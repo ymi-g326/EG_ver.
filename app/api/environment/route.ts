@@ -1,3 +1,4 @@
+import { publicDataCors } from "@/lib/public-data-cors";
 import { NextRequest, NextResponse } from "next/server";
 import { parseCoordinates } from "@/lib/coordinates";
 
@@ -7,7 +8,7 @@ type WeatherData = {
   current_units?: { wind_speed_10m?: string };
 };
 
-export async function GET(request: NextRequest) {
+async function getData(request: NextRequest) {
   const coordinates = parseCoordinates(request.nextUrl.searchParams);
   if (!coordinates) {
     return NextResponse.json({ error: "INVALID COORDINATES" }, { status: 400 });
@@ -76,3 +77,5 @@ export async function GET(request: NextRequest) {
     },
   );
 }
+
+export async function GET(request: NextRequest) { return publicDataCors(await getData(request)); }

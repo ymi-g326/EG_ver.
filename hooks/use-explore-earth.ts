@@ -1,5 +1,6 @@
 "use client";
 
+import { earthRequest } from "@/lib/app-path";
 import { useEffect, useState, type RefObject } from "react";
 import { analyzeReadWindow } from "@/lib/surface-analysis";
 import { isLandAt, surfaceMixAt } from "@/lib/land-mask";
@@ -44,7 +45,7 @@ export function useExploreEarth(point: GeoPoint | null, image: RefObject<HTMLIma
         });
         const query = new URLSearchParams({ lat: String(Math.round(latitude)), lon: String(Math.round(longitude)) });
         const fetchJson = async <T,>(path: string): Promise<T> => {
-          const response = await fetch(`${path}?${query}`, { signal: controller.signal });
+          const response = await earthRequest(`${path}?${query}`, { signal: controller.signal });
           if (!response.ok) throw new Error(`${path}: ${response.status}`);
           return await response.json() as T;
         };

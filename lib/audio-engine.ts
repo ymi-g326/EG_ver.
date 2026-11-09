@@ -1,3 +1,4 @@
+import { appPath } from "./app-path";
 import { renderStyleFeedback, STYLE_FEEDBACK } from "./style-feedback";
 import { scratchControl, SCRATCH_RETURN_SECONDS } from "./scratch-control";
 import { renderViewTransitionSound, VIEW_TRANSITION_MS, VIEW_TRANSITION_LEVEL } from "./view-transition-sound";
@@ -49,7 +50,7 @@ export const EARTH_SOUND_SOURCES: Record<
     label: "GULF WAVES",
     code: "OCN",
     material: "WATER / SURF",
-    file: "/audio/earth/ocean-waves.mp3",
+    file: appPath("/audio/earth/ocean-waves.mp3"),
     creator: "the_toilet_guy",
     sourceUrl: "https://freesound.org/s/255153/",
     license: "CC0",
@@ -58,7 +59,7 @@ export const EARTH_SOUND_SOURCES: Record<
     label: "THUNDER RAIN",
     code: "CLD",
     material: "RAIN / THUNDER",
-    file: "/audio/earth/thunder-rain.mp3",
+    file: appPath("/audio/earth/thunder-rain.mp3"),
     creator: "secretmojo",
     sourceUrl: "https://freesound.org/s/238862/",
     license: "CC0",
@@ -67,7 +68,7 @@ export const EARTH_SOUND_SOURCES: Record<
     label: "DRY WIND",
     code: "DRY",
     material: "WIND / BADLANDS",
-    file: "/audio/earth/dry-wind.mp3",
+    file: appPath("/audio/earth/dry-wind.mp3"),
     creator: "PLukx",
     sourceUrl: "https://freesound.org/s/256125/",
     license: "CC0",
@@ -76,7 +77,7 @@ export const EARTH_SOUND_SOURCES: Record<
     label: "WIND + LEAVES",
     code: "FRS",
     material: "TREE / LEAVES",
-    file: "/audio/earth/forest-leaves.mp3",
+    file: appPath("/audio/earth/forest-leaves.mp3"),
     creator: "SamuelGremaud",
     sourceUrl: "https://freesound.org/s/546527/",
     license: "CC0",
@@ -85,7 +86,7 @@ export const EARTH_SOUND_SOURCES: Record<
     label: "ROCK COLLISIONS",
     code: "RCK",
     material: "STONE / IMPACT",
-    file: "/audio/earth/rock-collisions.mp3",
+    file: appPath("/audio/earth/rock-collisions.mp3"),
     creator: "Plaban2001",
     sourceUrl: "https://freesound.org/s/579409/",
     license: "CC0",
@@ -607,7 +608,7 @@ export class EarthAudioEngine {
   private async setupScratchRecorder(context: AudioContext) {
     if (!context.audioWorklet || typeof AudioWorkletNode === "undefined") return;
     try {
-      await context.audioWorklet.addModule("/audio/scratch-recorder.js");
+      await context.audioWorklet.addModule(appPath("/audio/scratch-recorder.js"));
       if (this.context !== context || context.state === "closed" || !this.master) return;
       const recorder = new AudioWorkletNode(context, "earth-scratch-recorder", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] });
       this.recorder = recorder;
@@ -641,7 +642,7 @@ export class EarthAudioEngine {
       };
       recorder.port.postMessage({ type: "enabled", value: this.timer !== null });
       try {
-        await context.audioWorklet.addModule("/audio/scratch-player.js");
+        await context.audioWorklet.addModule(appPath("/audio/scratch-player.js"));
         if(this.context!==context || !this.scratchOutput)return;
         this.scratchPlayer=new AudioWorkletNode(context,"earth-scratch-player",{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]});
         this.scratchPlayer.connect(this.scratchOutput);this.startContinuousScratch();

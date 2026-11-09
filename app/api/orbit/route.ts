@@ -1,3 +1,4 @@
+import { publicDataCors } from "@/lib/public-data-cors";
 import { NextResponse } from "next/server";
 import { MISSION } from "@/lib/mission";
 import { parseOrbit, validateOrbit } from "@/lib/orbit";
@@ -6,7 +7,7 @@ import reference from "@/data/tenkoh2-reference.json";
 const CELESTRAK_URL = `https://celestrak.org/NORAD/elements/gp.php?CATNR=${MISSION.noradId}&FORMAT=TLE`;
 const SATNOGS_URL = `https://db.satnogs.org/api/tle/?norad_cat_id=${MISSION.noradId}`;
 
-export async function GET() {
+async function getData() {
   for (const source of ["CelesTrak", "SatNOGS"] as const) {
     try {
       const response = await fetch(source === "CelesTrak" ? CELESTRAK_URL : SATNOGS_URL, {
@@ -45,3 +46,5 @@ export async function GET() {
     });
   }
 }
+
+export async function GET() { return publicDataCors(await getData()); }

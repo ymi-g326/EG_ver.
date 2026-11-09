@@ -50,3 +50,6 @@ tsconfig.tsbuildinfo
 
 # Independent local pnpm store
 /.pnpm-store/
+
+# GitHub Pages output
+/dist-pages/

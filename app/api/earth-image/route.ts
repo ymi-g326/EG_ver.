@@ -1,3 +1,4 @@
+import { publicDataCors } from "@/lib/public-data-cors";
 import { NextResponse } from "next/server";
 
 function observationDate() {
@@ -6,7 +7,7 @@ function observationDate() {
   return date.toISOString().slice(0, 10);
 }
 
-export async function GET() {
+async function getData() {
   const date = observationDate();
   const params = new URLSearchParams({
     SERVICE: "WMS",
@@ -49,3 +50,5 @@ export async function GET() {
     );
   }
 }
+
+export async function GET() { return publicDataCors(await getData()); }

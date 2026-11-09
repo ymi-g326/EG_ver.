@@ -1,5 +1,7 @@
 "use client";
 
+import { appPath, apiPath, earthRequest } from "@/lib/app-path";
+
 import PlayerViews from "@/components/player-views";
 import InspectPlayer from "@/components/inspect-player";
 import GroovePlayer from "@/components/groove-player";
@@ -192,7 +194,7 @@ const IMAGE_DATE = (() => {
   date.setUTCDate(date.getUTCDate() - 2);
   return date.toISOString().slice(0, 10);
 })();
-const EARTH_IMAGE_URL = "/api/earth-image";
+const EARTH_IMAGE_URL = apiPath("/api/earth-image");
 
 const clamp = (value: number, min = 0, max = 1) =>
   Math.min(max, Math.max(min, value));
@@ -483,7 +485,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const response = await fetch("/api/orbit", { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]) });
+        const response = await earthRequest("/api/orbit", { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]) });
         if (!response.ok) throw new Error("Orbit fetch failed");
         const data = await response.json() as OrbitResponse;
         const verified = validateOrbit(data.line1, data.line2);
@@ -593,7 +595,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
     let active=true;
     const controller=new AbortController();
     const load=()=>{
-      fetch(`/api/terrain?lat=${roundedLat}&lon=${roundedLon}`,{signal:controller.signal})
+      earthRequest(`/api/terrain?lat=${roundedLat}&lon=${roundedLon}`,{signal:controller.signal})
         .then(async response=>{if(!response.ok)throw Error('Terrain unavailable');return await response.json() as TerrainData;})
         .then(data=>{if(active)setTerrainState({cell:terrainCell,data,status:'標高9点から地域の起伏を算出'});})
         .catch(()=>{if(active)setTerrainState({cell:terrainCell,data:null,status:'地形未取得（起伏効果は中立）'});});
@@ -608,7 +610,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
     const controller = new AbortController();
     const load = () => {
       setWeatherAcquisition(current => ({ ...current, status: "取得中（直前の取得値を継続）" }));
-      fetch(
+      earthRequest(
         `/api/environment?lat=${roundedLat}&lon=${roundedLon}`,
         { signal: controller.signal },
       )
@@ -1012,12 +1014,12 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
 
       <header className="topbar">
         <div className="brand-lockup">
-          <img className="brand-logo" src="/earth-groove-logo.svg" alt="Earth Groove — Play the Earth." />
+          <img className="brand-logo" src={appPath("/earth-groove-logo.svg")} alt="Earth Groove — Play the Earth." />
           <div className="nucc-badge">
             <span aria-hidden="true">×</span>
             <picture>
-              <source media="(max-width: 520px)" srcSet="/brand/nucc-stacked-light.svg" />
-              <img className="nucc-full-logo" src="/brand/nucc-horizontal-light.svg" alt="N.U Cosmic Campus" />
+              <source media="(max-width: 520px)" srcSet={appPath("/brand/nucc-stacked-light.svg")} />
+              <img className="nucc-full-logo" src={appPath("/brand/nucc-horizontal-light.svg")} alt="N.U Cosmic Campus" />
             </picture>
           </div>
         </div>
@@ -1027,7 +1029,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
           <i />
           <span>{clock || "--:--:--"} UTC</span>
         </div>
-        <a className="local-mode-link" href="/local">ローカルモード</a>
+        <a className="local-mode-link" href={appPath("/local/")}>ローカルモード</a>
         <button className="guide-button" type="button" aria-label="この作品について" onClick={() => guideRef.current?.showModal()}>
           <Info size={16} aria-hidden="true" /><span>この作品について</span>
         </button>
@@ -1041,8 +1043,8 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
         </div>
         <div className="mission-satellite">
           <div className="mission-logos">
-            <img className="mission-logo-ja" src="/brand/tenkoh2-ja-light.svg" alt="てんこう2" />
-            <img className="mission-logo-en" src="/brand/tenkoh2-en-light.svg" alt="TEN-KOH2" />
+            <img className="mission-logo-ja" src={appPath("/brand/tenkoh2-ja-light.svg")} alt="てんこう2" />
+            <img className="mission-logo-en" src={appPath("/brand/tenkoh2-en-light.svg")} alt="TEN-KOH2" />
           </div>
           <div className="mission-identity"><span>OUR RECORD NEEDLE</span><strong>地球を読む衛星</strong><em>NORAD {MISSION.noradId} · 地球低軌道</em></div>
         </div>
@@ -1110,7 +1112,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
               >
                 <span className="marker-ring" />
                 <Satellite aria-hidden="true" />
-                <label><img src="/brand/tenkoh2-en-light.svg" alt="TEN-KOH2" /></label>
+                <label><img src={appPath("/brand/tenkoh2-en-light.svg")} alt="TEN-KOH2" /></label>
               </div>
             ) : (
               <div className="orbit-empty" role="status">
@@ -1318,7 +1320,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
           <span className="mission-eyebrow">EARTH GROOVE × N.U COSMIC CAMPUS</span>
           <div className="guide-title-row">
             <h2 id="guide-title">地球がレコード。<br />てんこう2が、その針。</h2>
-            <img className="guide-nucc-logo" src="/brand/nucc-stacked-light.svg" alt="N.U Cosmic Campus" />
+            <img className="guide-nucc-logo" src={appPath("/brand/nucc-stacked-light.svg")} alt="N.U Cosmic Campus" />
           </div>
           <p>地球を巡る小さな衛星。その針の下に広がる海や森、雲の風景が、一度きりの音楽になります。「地球を聴く」を押して、宇宙からの視点を体験してください。</p>
           <ol className="guide-steps">
@@ -1329,8 +1331,8 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
           <p className="guide-data-note">地域の起伏はCopernicus DEM GLO-90（Open-Meteo経由）の周辺9点から算出。海岸の混合は簡略な地図の周辺6°の海陸割合を使い、正確な海岸線や山頂の判定ではありません。</p>
           <p className="guide-data-note">この作品の音楽は地上で生成しています。てんこう2から直接受信した音声や写真ではありません。地表画像は観測日の画像を使用し、位置は軌道から計算しています。</p>
           <div className="guide-mission-logos" aria-label="てんこう2のロゴ">
-            <img src="/brand/tenkoh2-ja-light.svg" alt="てんこう2" />
-            <img src="/brand/tenkoh2-en-light.svg" alt="TEN-KOH2" />
+            <img src={appPath("/brand/tenkoh2-ja-light.svg")} alt="てんこう2" />
+            <img src={appPath("/brand/tenkoh2-en-light.svg")} alt="TEN-KOH2" />
           </div>
           <div className="guide-links"><a href={MISSION.website} target="_blank" rel="noreferrer">N.U Cosmic Campus ↗</a><a href={MISSION.satelliteWebsite} target="_blank" rel="noreferrer">てんこう2について ↗</a></div>
         </div>

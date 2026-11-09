@@ -1,5 +1,7 @@
 "use client";
 
+import { appPath } from "@/lib/app-path";
+
 import { VoiceMeter } from "@/lib/voice-meter";
 import PlayerViews from "@/components/player-views";
 import InspectPlayer from "@/components/inspect-player";
@@ -146,12 +148,12 @@ export default function LocalPlayer() {
     <header className="local-header">
       <div className="local-brands">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/earth-groove-logo.svg" alt="EARTH GROOVE" />
+        <img src={appPath("/earth-groove-logo.svg")} alt="EARTH GROOVE" />
         <span aria-hidden="true">×</span>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/nucc-horizontal-light.svg" alt="N.U Cosmic Campus" />
+        <img src={appPath("/brand/nucc-horizontal-light.svg")} alt="N.U Cosmic Campus" />
       </div>
-      <nav aria-label="演奏モード"><a href="/">実環境モード</a><a href="/local" aria-current="page">ローカルモード</a></nav>
+      <nav aria-label="演奏モード"><a href={appPath("/")}>実環境モード</a><a href={appPath("/local/")} aria-current="page">ローカルモード</a></nav>
     </header>
 
     <section className="local-intro">

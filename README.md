@@ -7,6 +7,18 @@ UIは現状を保ち、通信・音声・スクラッチの不具合修正を優
 PF版はURL共有による閲覧用。検索エンジンには `noindex, nofollow, noarchive` を指定する。
 URLを受け取った人はアクセスできる。認証による閲覧者制限ではない。
 
+## GitHub Pages版
+
+`pnpm build:pages` で `dist-pages/` にLIVEとLOCALの静的アプリを生成する。
+GitHub Pagesの公開元は `gh-pages` ブランチのルート。`main` には開発ソースを保存する。
+ソースのpushだけではPages版は更新されない。変更後はビルドした成果物を `gh-pages` へ反映する。
+
+画面・音源・AudioWorkletはGitHub Pagesで配信し、軌道・NASA画像・気象・起伏は
+既存のPF用データサーバー `https://earth-groove-pf.sorriso-2870.chatgpt.site/api/` を利用する。
+埋め込みや転送ではなく、同じReactコンポーネント・音声エンジンをブラウザで実行する。
+公開データAPIには認証なしGET用のCORSヘッダーを付ける。LOCALは外部APIを利用しない。
+検索除外の指定はPages版にも維持する。
+
 ## 起動
 
 - `pnpm dev`：PF管理 http://127.0.0.1:3301/ と PF本体 http://127.0.0.1:3300/

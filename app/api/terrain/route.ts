@@ -1,7 +1,8 @@
+import { publicDataCors } from "@/lib/public-data-cors";
 import { NextRequest, NextResponse } from "next/server";
 import { parseCoordinates } from "@/lib/coordinates";
 import { terrainGrid, analyzeElevation } from "@/lib/terrain-data";
-export async function GET(request: NextRequest) {
+async function getData(request: NextRequest) {
   const coordinates = parseCoordinates(request.nextUrl.searchParams);
   const grid = coordinates ? terrainGrid(coordinates.latitude, coordinates.longitude) : null;
   if(!grid) return NextResponse.json({error:'INVALID COORDINATES'},{status:400});
@@ -18,3 +19,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({error:'TERRAIN UNAVAILABLE',latitude:grid.latitude,longitude:grid.longitude},{status:502,headers:{'Cache-Control':'no-store'}});
   }
 }
+
+export async function GET(request: NextRequest) { return publicDataCors(await getData(request)); }

@@ -20,6 +20,9 @@ SCRATCHはアプリの直前約2秒の音声をメモリ内で保持して前後
 確認: `pnpm typecheck`、`pnpm test`、`pnpm build`。
 PFの公開ビルドはVinextでCloudflare Workerを生成（既存Next.jsアプリを利用）。従来Next.jsビルドは `pnpm build:next`。
 公開先IDは `.openai/hosting.json` を使用し、既存版の公開先へデプロイしない。
+GitHub Pages版は `pnpm build:pages` で静的出力。GitHubの `main` は開発ソース、`gh-pages` は配信物。
+画面の配置や音声エンジンを分岐させず、`lib/app-path.ts` でアセット・APIの参照先だけを切り替える。
+GitHub Pagesでもデータ取得用のSitesサーバーが必要。サイト全体をGitHubだけで動かしているとは説明しない。
 
 <!-- BEGIN:nextjs-agent-rules -->
 
