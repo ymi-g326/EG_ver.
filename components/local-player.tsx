@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { VoiceMeter } from "@/lib/voice-meter";
 import PlayerViews from "@/components/player-views";
 import InspectPlayer from "@/components/inspect-player";
@@ -152,7 +151,7 @@ export default function LocalPlayer() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/nucc-horizontal-light.svg" alt="N.U Cosmic Campus" />
       </div>
-      <nav aria-label="演奏モード"><Link href="/" prefetch={false}>実環境モード</Link><Link href="/local" prefetch={false} aria-current="page">ローカルモード</Link></nav>
+      <nav aria-label="演奏モード"><a href="/">実環境モード</a><a href="/local" aria-current="page">ローカルモード</a></nav>
     </header>
 
     <section className="local-intro">

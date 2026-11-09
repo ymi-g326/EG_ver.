@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import PlayerViews from "@/components/player-views";
 import InspectPlayer from "@/components/inspect-player";
 import GroovePlayer from "@/components/groove-player";
@@ -1028,7 +1027,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
           <i />
           <span>{clock || "--:--:--"} UTC</span>
         </div>
-        <Link className="local-mode-link" href="/local" prefetch={false}>ローカルモード</Link>
+        <a className="local-mode-link" href="/local">ローカルモード</a>
         <button className="guide-button" type="button" aria-label="この作品について" onClick={() => guideRef.current?.showModal()}>
           <Info size={16} aria-hidden="true" /><span>この作品について</span>
         </button>
