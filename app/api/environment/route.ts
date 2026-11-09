@@ -64,6 +64,10 @@ export async function GET(request: NextRequest) {
       oceanCurrent: currentMarine?.ocean_current_velocity ?? null,
       sampledAt: new Date().toISOString(),
       source: "Open-Meteo",
+      availability: {
+        weather: weather.status === "fulfilled" ? "available" : weather.reason instanceof Error && /^Weather \d{3}$/.test(weather.reason.message) ? weather.reason.message : "unavailable",
+        marine: marine.status === "fulfilled" ? "available" : "unavailable",
+      },
     },
     {
       headers: {
