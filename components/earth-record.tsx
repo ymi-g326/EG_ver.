@@ -36,6 +36,7 @@ import TempoControls from "@/components/tempo-controls";
 import { VoiceMeter } from "@/lib/voice-meter";
 import DevAudioInspector from "@/components/dev-audio-inspector";
 import { DEFAULT_TEMPO, type TempoSettings, type TempoRuntime } from "@/lib/audio-tempo";
+import { retainOrbit, validateOrbit } from "@/lib/orbit";
 import { MISSION, SURFACE_LABELS } from "@/lib/mission";
 import { WORLD_LAND_PATH } from "@/lib/world-map";
 import {
@@ -293,6 +294,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
   const [orbitStatus, setOrbitStatus] = useState<"connecting" | "live" | "reference" | "degraded">("connecting");
   const [orbitData, setOrbitData] = useState<OrbitResponse | null>(null);
   const [orbitAttempt, setOrbitAttempt] = useState(0);
+  const lastValidOrbit = useRef<OrbitResponse | null>(null);
   const [mapMode, setMapMode] = useState<"contour" | "surface">("contour");
   const guideRef = useRef<HTMLDialogElement>(null);
   const [imageReady, setImageReady] = useState(false);
@@ -482,20 +484,31 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const response = await fetch("/api/orbit", { signal: controller.signal });
+        const response = await fetch("/api/orbit", { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]) });
         if (!response.ok) throw new Error("Orbit fetch failed");
         const data = await response.json() as OrbitResponse;
+        const verified = validateOrbit(data.line1, data.line2);
+        data.epoch = verified.epoch;
         const record = satellite.twoline2satrec(data.line1, data.line2);
         if (record.satnum !== String(MISSION.noradId) || !readPosition(record, new Date())) {
           throw new Error("Invalid Ten-Koh 2 orbit");
         }
         if (!active) return;
+        lastValidOrbit.current = data;
         setSatrec(record);
         setTrack(makeTrack(record, new Date()));
         setOrbitData(data);
         setOrbitStatus(data.mode === "reference" ? "reference" : "live");
       } catch {
         if (!active) return;
+        const retained = retainOrbit(lastValidOrbit.current);
+        if (retained) {
+          lastValidOrbit.current = retained;
+          setOrbitData(retained);
+          setOrbitStatus("reference");
+          return;
+        }
+        lastValidOrbit.current = null;
         setSatrec(null);
         setPosition(null);
         setTrack({ past: [], future: [] });

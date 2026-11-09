@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { parseCoordinates } from "@/lib/coordinates";
 import { terrainGrid, analyzeElevation } from "@/lib/terrain-data";
 export async function GET(request: NextRequest) {
-  const lat=request.nextUrl.searchParams.get('lat'),lon=request.nextUrl.searchParams.get('lon');
-  const grid=lat?.trim()&&lon?.trim()?terrainGrid(Number(lat),Number(lon)):null;
+  const coordinates = parseCoordinates(request.nextUrl.searchParams);
+  const grid = coordinates ? terrainGrid(coordinates.latitude, coordinates.longitude) : null;
   if(!grid) return NextResponse.json({error:'INVALID COORDINATES'},{status:400});
   const params=new URLSearchParams({latitude:grid.points.map(p=>p.latitude).join(','),longitude:grid.points.map(p=>p.longitude).join(',')});
   try {

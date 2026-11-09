@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { parseCoordinates } from "@/lib/coordinates";
 
 type WeatherData = {
   current?: { temperature_2m?: number | null; cloud_cover?: number | null; wind_speed_10m?: number | null;
@@ -6,18 +7,12 @@ type WeatherData = {
   current_units?: { wind_speed_10m?: string };
 };
 
-function bounded(value: string | null, min: number, max: number) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : null;
-}
-
 export async function GET(request: NextRequest) {
-  const lat = bounded(request.nextUrl.searchParams.get("lat"), -90, 90);
-  const lon = bounded(request.nextUrl.searchParams.get("lon"), -180, 180);
-
-  if (lat === null || lon === null) {
+  const coordinates = parseCoordinates(request.nextUrl.searchParams);
+  if (!coordinates) {
     return NextResponse.json({ error: "INVALID COORDINATES" }, { status: 400 });
   }
+  const { latitude: lat, longitude: lon } = coordinates;
 
   const weatherParams = new URLSearchParams({
     latitude: String(lat),

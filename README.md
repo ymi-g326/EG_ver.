@@ -8,7 +8,8 @@ UIは現状を保ち、通信・音声・スクラッチの不具合修正を優
 
 - `pnpm dev`：PF管理 http://127.0.0.1:3301/ と PF本体 http://127.0.0.1:3300/
 - `pnpm dev:app`：PF本体のみ起動。
-- `pnpm build` / `pnpm start`：本番ビルドと3300番での起動。
+- `pnpm build`：PFサイト公開用のWorkerを `dist/` に生成。
+- `pnpm build:next` / `pnpm start`：Next.jsの本番ビルドと3300番での起動。
 - 現行版の3100 / 3101、V2の3200 / 3201とは独立して操作する。
 - `node_modules` も独立したAPFS複製。元フォルダへのシンボリックリンクではない。
 

@@ -35,3 +35,14 @@ export function parseOrbit(text: string, now = new Date()) {
   if (!line1 || !line2) throw new Error("Orbital elements missing");
   return validateOrbit(line1, line2, now);
 }
+
+/** A failed refresh may keep a previously validated orbit only while it is still recent. */
+export function retainOrbit<T extends { line1: string; line2: string }>(previous: T | null, now = new Date()) {
+  if (!previous) return null;
+  try {
+    validateOrbit(previous.line1, previous.line2, now);
+    return { ...previous, mode: "reference" as const };
+  } catch {
+    return null;
+  }
+}

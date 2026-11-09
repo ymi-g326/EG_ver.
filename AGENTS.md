@@ -18,6 +18,8 @@ SCRATCHはアプリの直前約2秒の音声をメモリ内で保持して前後
 実行: `pnpm dev`（開発用ON/OFF管理: http://127.0.0.1:3301、NUCC版: http://127.0.0.1:3300）。
 管理サーバーは自分が起動したNUCC版のみ操作する。既存版や別のプロセスをポート番号だけで停止しない。
 確認: `pnpm typecheck`、`pnpm test`、`pnpm build`。
+PFの公開ビルドはVinextでCloudflare Workerを生成（既存Next.jsアプリを利用）。従来Next.jsビルドは `pnpm build:next`。
+公開先IDは `.openai/hosting.json` を使用し、既存版の公開先へデプロイしない。
 
 <!-- BEGIN:nextjs-agent-rules -->
 
