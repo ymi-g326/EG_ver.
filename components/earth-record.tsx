@@ -1,6 +1,7 @@
 "use client";
 
 import { appPath, apiPath, earthRequest } from "@/lib/app-path";
+import { imageRetryDelay } from "@/lib/image-recovery";
 
 import PlayerViews from "@/components/player-views";
 import InspectPlayer from "@/components/inspect-player";
@@ -300,6 +301,8 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
   const guideRef = useRef<HTMLDialogElement>(null);
   const [imageReady, setImageReady] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const [imageFailures, setImageFailures] = useState(0);
+  const [imageAttempt, setImageAttempt] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [clouds, setClouds] = useState(true);
   const [volume, setVolume] = useState(72);
@@ -319,6 +322,16 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
   const [clock, setClock] = useState("");
   const [coordinateCardSide, setCoordinateCardSide] = useState<"left" | "right">("left");
   const imageRef = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    if (!imageFailed) return;
+    const delay = imageRetryDelay(imageFailures);
+    if (delay === null) return;
+    const timer = window.setTimeout(() => {
+      setImageFailed(false);
+      setImageAttempt(Date.now());
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [imageFailed, imageFailures]);
   const exploration = useExploreEarth(explorePoint, imageRef, imageReady);
   const selectedReading = exploration.reading;
   useEffect(() => {
@@ -773,6 +786,9 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
     if (image?.complete && image.naturalWidth) {
       setImageReady(true);
       window.requestAnimationFrame(renderContourMap);
+    } else if (image?.complete) {
+      setImageFailed(true);
+      setImageFailures(count => Math.max(1, count));
     }
   }, [renderContourMap]);
 
@@ -970,7 +986,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
     audioRef.current?.endScratch();
     if (!position || !imageReady) { audioRef.current?.stop(); setPlaying(false); }
   };
-  const playerStatus = explorePoint ? exploration.error ?? (exploration.pending ? "選んだ土地を取得中 · 直前の音を続けています" : selectedReading?.weatherPending ? "選んだ地点の地表を演奏 · 気象モデルを取得中" : selectedReading?.weatherMissing ? "選んだ地点を演奏 · 風は欠測のため直前のBPMを維持" : playing ? "選んだ地点の風景を聴いています · LIVEで衛星の位置へ戻れます" : "選んだ地点を演奏できます") : !position ? orbitStatus === "degraded" ? "軌道を取得できません。再取得かLOCALで聴けます。" : "てんこう2の軌道を取得中" : !imageReady ? imageFailed ? "地表画像を取得できません。再取得かLOCALで聴けます。" : "地表画像を取得中" : auditionId ? "合成条件の試聴中 · 実際の地球とは連動しません" : orbitStatus === "reference" ? "保存した軌道から現在位置を推定" : playing ? "てんこう2と、地球を聴いています" : "そのまま聴く。ときどき、音に触れる。";
+  const playerStatus = explorePoint ? exploration.error ?? (exploration.pending ? "選んだ土地を取得中 · 直前の音を続けています" : selectedReading?.weatherPending ? "選んだ地点の地表を演奏 · 気象モデルを取得中" : selectedReading?.weatherMissing ? "選んだ地点を演奏 · 風は欠測のため直前のBPMを維持" : playing ? "選んだ地点の風景を聴いています · LIVEで衛星の位置へ戻れます" : "選んだ地点を演奏できます") : !position ? orbitStatus === "degraded" ? "軌道を取得できません。再取得かLOCALで聴けます。" : "てんこう2の軌道を取得中" : !imageReady ? imageFailed ? imageRetryDelay(imageFailures) !== null ? "衛星位置は取得済み · 地表画像を自動再取得します" : "衛星位置は取得済み · 地表画像を取得できません。再取得かLOCALで聴けます。" : "衛星位置は取得済み · 地表画像を取得中" : auditionId ? "合成条件の試聴中 · 実際の地球とは連動しません" : orbitStatus === "reference" ? "保存した軌道から現在位置を推定" : playing ? "てんこう2と、地球を聴いています" : "そのまま聴く。ときどき、音に触れる。";
 
   const changeDetailView = (value:boolean) => {
     if(value===detailView)return;
@@ -978,15 +994,18 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
   };
 
   return <>
-    {player && <PlayerViews loading={!playerReady || (!!explorePoint && exploration.pending)} inspect={detailView} onChange={changeDetailView} touch={<GroovePlayer mode="live" features={playerFeatures} position={position} track={track} cloudImageRef={imageRef} clouds={clouds} onClouds={setClouds} playing={playing} ready={playerReady} volume={volume} levels={voiceLevels}
+    {player && <PlayerViews loading={(!position && orbitStatus === "connecting") || (!imageReady && !imageFailed) || (!!explorePoint && exploration.pending)} inspect={detailView} onChange={changeDetailView} touch={<GroovePlayer mode="live" features={playerFeatures} position={position} track={track} cloudImageRef={imageRef} clouds={clouds} onClouds={setClouds} playing={playing} ready={playerReady} volume={volume} levels={voiceLevels}
       explore={explorePoint ? { point: selectedReading?.point ?? null, target: explorePoint, pending: exploration.pending, weatherPending: selectedReading?.weatherPending ?? true, error: exploration.error } : null}
-      onExplore={selectExplore} onLive={returnLive} autoLiveEnabled={!detailView && !!position && imageReady && !activeAudition} onLiveReturnSound={() => audioRef.current?.liveReturnSound()}
+      onExplore={selectExplore} onLive={returnLive} autoLiveEnabled={!detailView && !!position && !activeAudition} onLiveReturnSound={() => audioRef.current?.liveReturnSound()}
       listeningMode={listeningMode} tempo={tempoSettings} runtime={tempoRuntime} status={playerStatus} observation={imageReady ? IMAGE_DATE : undefined} weatherTime={explorePoint ? selectedReading?.weatherTime : environment.weatherModelTime}
       onToggle={togglePlayback} onVolume={value => { setVolume(value); audioRef.current?.setVolume(value / 100); }} onListeningMode={changeListeningMode} onTempo={changeTempo}
       onInspect={() => changeDetailView(true)} onScratch={(velocity, strength) => audioRef.current?.scratch(velocity, strength)}
       scratchReady={scratchReady} onScratchStart={held => audioRef.current?.beginScratch(held)} onScratchRelease={() => audioRef.current?.releaseScratch()} onScratchEnd={() => audioRef.current?.endScratch()}
       natureLevel={natureLevel} onNatureLevel={value => { setNatureLevel(value); audioRef.current?.setNatureLevel(value / 100); }}
-      onRetry={() => { setOrbitAttempt(value => value + 1); if (imageRef.current) imageRef.current.src = `${EARTH_IMAGE_URL}?retry=${Date.now()}`; }}
+      onRetry={() => {
+        if (!position) setOrbitAttempt(value => value + 1);
+        setImageFailures(0); setImageFailed(false); setImageAttempt(Date.now());
+      }}
       needsReconnect={playing && contextState !== "running"} onReconnect={() => { audioRef.current?.start(); setPlaying(true); }} />} inspection={
     <InspectPlayer clouds={clouds} onClouds={setClouds} features={playerFeatures}
       point={activeAudition?null:selectedReading?.point??position} satellite={position} mode={activeAudition?'audition':explorePoint?'explore':'live'}
@@ -1000,12 +1019,13 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
       <img
         ref={imageRef}
         className="analysis-image"
-        src={EARTH_IMAGE_URL}
+        src={imageAttempt ? `${EARTH_IMAGE_URL}?retry=${imageAttempt}` : EARTH_IMAGE_URL}
         alt=""
         crossOrigin="anonymous"
-        onError={() => setImageFailed(true)}
+        onError={() => { setImageFailed(true); setImageFailures(count => count + 1); }}
         onLoad={() => {
           setImageFailed(false);
+          setImageFailures(0);
           if (!IMAGE_ANALYSIS_ENABLED) return;
           setImageReady(true);
           window.requestAnimationFrame(renderContourMap);

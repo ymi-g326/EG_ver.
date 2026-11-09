@@ -11,7 +11,7 @@ export default defineConfig({
   resolve: { alias: { "@": root } },
   define: {
     "process.env.NEXT_PUBLIC_EG_BASE_PATH": JSON.stringify("/EG_ver."),
-    "process.env.NEXT_PUBLIC_EG_API_ORIGIN": JSON.stringify("https://earth-groove-pf.sorriso-2870.chatgpt.site"),
+    "process.env.NEXT_PUBLIC_EG_API_ORIGIN": JSON.stringify(process.env.EG_PAGES_API_ORIGIN ?? "https://earth-groove-pf.sorriso-2870.chatgpt.site"),
   },
   build: {
     outDir: `${root}dist-pages`,

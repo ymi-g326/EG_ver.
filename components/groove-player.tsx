@@ -175,7 +175,7 @@ export default function GroovePlayer(props: Props) {
 
       <aside className="v2-track-side" aria-label="いま聴いている風景">
         <div className="v2-mode-row"><span className={`v2-signal ${loaded ? "is-ready" : ""}`} /><span>{local ? "LOCAL / SHUFFLE" : props.explore ? "EXPLORE / SELECTED LAND" : "LIVE / ORBIT-DRIVEN"}</span><span className="v2-edition">02</span></div>
-        <div className="v2-track-title"><p className="v2-eyebrow">{props.playing ? "NOW PLAYING" : loaded ? "READY TO LISTEN" : "CONNECTING TO EARTH"}</p><h1>{loaded ? landscape.name : "Finding\nour groove."}</h1><p>{loaded ? landscape.japanese : "地球を聴く準備をしています"}<span> / {loaded ? landscape.code : "—"}</span></p></div>
+        <div className="v2-track-title"><p className="v2-eyebrow">{props.playing ? "NOW PLAYING" : loaded ? "READY TO LISTEN" : !local && props.position ? "POSITION READY / IMAGE PENDING" : "CONNECTING TO EARTH"}</p><h1>{loaded ? landscape.name : !local && props.position ? "Reading\nEarth." : "Finding\nour groove."}</h1><p>{loaded ? landscape.japanese : !local && props.position ? "衛星の位置は取得済み · 地表データ待ち" : "地球を聴く準備をしています"}<span> / {loaded ? landscape.code : "—"}</span></p></div>
         <div className="v2-track-credit"><span className="v2-cover-mark" aria-hidden="true"><AudioLines size={23} /></span><div><strong>{loaded ? motif : "EARTH GROOVE"}</strong><span>{loaded ? `with ${landscape.natural.toLowerCase()}` : "A continuous record of our planet"}</span></div></div>
         <div className="v2-condition-line">
           <span><Cloud size={15} /> {loaded ? `${Math.round(props.features.cloud * 100)}%` : "—"}<small>CLOUD</small></span>

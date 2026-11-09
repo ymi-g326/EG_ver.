@@ -1,5 +1,6 @@
 import { publicDataCors } from "@/lib/public-data-cors";
 import { NextResponse } from "next/server";
+import { hasJpegEnvelope } from "@/lib/image-recovery";
 
 function observationDate() {
   const date = new Date();
@@ -31,8 +32,11 @@ async function getData() {
       next: { revalidate: 21600 },
     });
     if (!response.ok) throw new Error(`NASA GIBS ${response.status}`);
-
-    return new NextResponse(await response.arrayBuffer(), {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (!response.headers.get("content-type")?.toLowerCase().startsWith("image/jpeg") || !hasJpegEnvelope(bytes)) {
+      throw new Error("NASA GIBS returned invalid or incomplete imagery");
+    }
+    return new NextResponse(bytes, {
       headers: {
         "Content-Type": response.headers.get("content-type") || "image/jpeg",
         "Cache-Control": "public, s-maxage=21600, stale-while-revalidate=86400",
@@ -46,7 +50,7 @@ async function getData() {
         error: "EARTH IMAGERY UNAVAILABLE",
         detail: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 503 },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
 }
