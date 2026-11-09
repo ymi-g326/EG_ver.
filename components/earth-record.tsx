@@ -1,7 +1,7 @@
 "use client";
 
 import { appPath, apiPath, earthRequest } from "@/lib/app-path";
-import { imageRetryDelay } from "@/lib/image-recovery";
+import { imageRetryDelay, ImageFailureCounter } from "@/lib/image-recovery";
 
 import PlayerViews from "@/components/player-views";
 import InspectPlayer from "@/components/inspect-player";
@@ -322,6 +322,12 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
   const [clock, setClock] = useState("");
   const [coordinateCardSide, setCoordinateCardSide] = useState<"left" | "right">("left");
   const imageRef = useRef<HTMLImageElement>(null);
+  const imageFailureCounter = useRef(new ImageFailureCounter());
+  const reportImageFailure = useCallback(() => {
+    const count = imageFailureCounter.current.report(imageAttempt);
+    if (count === null) return;
+    setImageFailed(true); setImageFailures(count);
+  }, [imageAttempt]);
   useEffect(() => {
     if (!imageFailed) return;
     const delay = imageRetryDelay(imageFailures);
@@ -787,10 +793,9 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
       setImageReady(true);
       window.requestAnimationFrame(renderContourMap);
     } else if (image?.complete) {
-      setImageFailed(true);
-      setImageFailures(count => Math.max(1, count));
+      reportImageFailure();
     }
-  }, [renderContourMap]);
+  }, [renderContourMap, reportImageFailure]);
 
   useEffect(() => {
     if (!imageReady || !position) return;
@@ -1004,6 +1009,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
       natureLevel={natureLevel} onNatureLevel={value => { setNatureLevel(value); audioRef.current?.setNatureLevel(value / 100); }}
       onRetry={() => {
         if (!position) setOrbitAttempt(value => value + 1);
+        imageFailureCounter.current.reset();
         setImageFailures(0); setImageFailed(false); setImageAttempt(Date.now());
       }}
       needsReconnect={playing && contextState !== "running"} onReconnect={() => { audioRef.current?.start(); setPlaying(true); }} />} inspection={
@@ -1022,9 +1028,10 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
         src={imageAttempt ? `${EARTH_IMAGE_URL}?retry=${imageAttempt}` : EARTH_IMAGE_URL}
         alt=""
         crossOrigin="anonymous"
-        onError={() => { setImageFailed(true); setImageFailures(count => count + 1); }}
+        onError={reportImageFailure}
         onLoad={() => {
           setImageFailed(false);
+          imageFailureCounter.current.reset();
           setImageFailures(0);
           if (!IMAGE_ANALYSIS_ENABLED) return;
           setImageReady(true);

@@ -1,6 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { imageRetryDelay, hasJpegEnvelope } from "../lib/image-recovery.ts";
+import { imageRetryDelay, hasJpegEnvelope, ImageFailureCounter } from "../lib/image-recovery.ts";
+
+test("cached-image mount checks and DOM errors count once per request, and success/manual retry resets the cycle", () => {
+  const counter = new ImageFailureCounter();
+  assert.equal(counter.report(0), 1);
+  assert.equal(counter.report(0), null);
+  assert.equal(counter.report(1000), 2);
+  assert.equal(counter.report(1000), null);
+  counter.reset();
+  assert.equal(counter.report(2000), 1);
+});
 
 test("transient image failures retry with backoff, stop after four attempts, and a new load starts fresh", () => {
   assert.deepEqual([1, 2, 3, 4].map(imageRetryDelay), [2000, 5000, 15000, 30000]);
