@@ -1,0 +1,9 @@
+{
+  "name": "TEN-KOH 2",
+  "noradId": 68261,
+  "source": "CelesTrak",
+  "sourceUrl": "https://celestrak.org/NORAD/elements/gp.php?CATNR=68261&FORMAT=TLE",
+  "fetchedAt": "2026-10-14",
+  "line1": "1 68261U 25241B   26286.72969423  .00007297  00000+0  29969-3 0  9995",
+  "line2": "2 68261  51.6583 114.8630 0007026 187.8211 172.2659 15.25199864 32994"
+}

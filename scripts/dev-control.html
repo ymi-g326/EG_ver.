@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="control-token" content="__CONTROL_TOKEN__">
+  <title>EARTH GROOVE NUCC V2 — 開発用サーバー管理</title>
+  <style>
+    :root { color-scheme: dark; font-family: "Helvetica Neue", Arial, sans-serif; color: #edf3ee; background: #080a09; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; height: 100dvh; display: flex; flex-direction: column; }
+    header { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #344039; background: #101311; }
+    strong { font-size: 13px; letter-spacing: .04em; }
+    .tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    button { min-height: 38px; padding: 7px 16px; border: 1px solid #526158; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+    button:first-child { background: #baff3d; color: #080a09; border-color: #baff3d; }
+    button:disabled { opacity: .4; cursor: default; }
+    button:focus-visible, a:focus-visible { outline: 2px solid #6af5db; outline-offset: 3px; }
+    #status { font-size: 13px; color: #6af5db; }
+    #detail { margin: 0; padding: 8px 16px; color: #ffb29d; font-size: 13px; }
+    main { position: relative; flex: 1; min-height: 0; }
+    iframe { width: 100%; height: 100%; border: 0; display: block; background: #080a09; }
+    #empty { height: 100%; display: grid; align-content: center; justify-items: center; gap: 12px; padding: 24px; text-align: center; }
+    #empty strong { font-size: 22px; }
+    #empty p { color: #a6b3aa; line-height: 1.7; }
+    [hidden] { display: none !important; }
+    @media (max-width: 520px) { .tools { width: 100%; margin-left: 0; } .tools button { flex: 1; } }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>EARTH GROOVE NUCC V2 · 開発用</strong>
+    <span id="status" role="status" aria-live="polite">状態を確認中…</span>
+    <div class="tools" role="group" aria-label="開発サーバー操作">
+      <button id="start" type="button" disabled>▶ ON</button>
+      <button id="stop" type="button" disabled>■ OFF</button>
+    </div>
+  </header>
+  <p id="detail" role="alert" hidden></p>
+  <main>
+    <iframe id="app" title="EARTH GROOVE NUCC V2" allow="autoplay" hidden></iframe>
+    <div id="empty"><strong id="empty-title">接続を確認中</strong><p id="empty-copy">開発サーバーの状態を確認しています。</p></div>
+  </main>
+  <script nonce="__SCRIPT_NONCE__">
+  (() => {
+    const token = document.querySelector('meta[name="control-token"]').content;
+    const status = document.getElementById('status');
+    const detail = document.getElementById('detail');
+    const start = document.getElementById('start');
+    const stop = document.getElementById('stop');
+    const app = document.getElementById('app');
+    const empty = document.getElementById('empty');
+    const emptyTitle = document.getElementById('empty-title');
+    const emptyCopy = document.getElementById('empty-copy');
+    let submitting = false;
+    const labels = { starting: '起動中…', running: 'ON · 起動中', stopping: '停止中…', stopped: 'OFF · 停止中', error: '確認が必要です' };
+    function render(data) {
+      status.textContent = labels[data.status] || data.status;
+      detail.textContent = data.detail || '';
+      detail.hidden = !data.detail;
+      start.disabled = submitting || ['running', 'starting', 'stopping'].includes(data.status);
+      stop.disabled = submitting || data.status !== 'running';
+      const running = data.status === 'running';
+      app.hidden = !running;
+      empty.hidden = running;
+      if (running && !app.hasAttribute('src')) app.src = data.appUrl;
+      if (!running && app.hasAttribute('src')) app.removeAttribute('src');
+      emptyTitle.textContent = data.status === 'starting' ? 'EARTH GROOVEを起動しています' : data.status === 'stopping' ? '停止しています' : 'EARTH GROOVEは停止中です';
+      emptyCopy.textContent = data.status === 'starting' ? '画面の準備ができると、自動で表示されます。' : '上のONボタンで再び起動できます。この管理画面は開いたままで大丈夫です。';
+    }
+    async function refresh() {
+      try {
+        const response = await fetch('/status', { cache: 'no-store', signal: AbortSignal.timeout(3000) });
+        if (!response.ok) throw new Error();
+        render(await response.json());
+      } catch {
+        status.textContent = '管理サーバーとの接続が切れました';
+        detail.hidden = false;
+        detail.textContent = 'ターミナルから pnpm dev を実行して、この画面を再読み込みしてください。';
+        start.disabled = stop.disabled = true;
+      }
+    }
+    async function act(action) {
+      if (submitting) return;
+      submitting = true; start.disabled = stop.disabled = true;
+      try {
+        const response = await fetch('/' + action, { method: 'POST', headers: { 'X-Control-Token': token }, signal: AbortSignal.timeout(5000) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || '操作に失敗しました');
+      } catch (error) {
+        detail.hidden = false; detail.textContent = error.message;
+        return;
+      } finally { submitting = false; }
+      await refresh();
+    }
+    start.addEventListener('click', () => void act('start'));
+    stop.addEventListener('click', () => void act('stop'));
+    async function poll() { await refresh(); setTimeout(poll, 1200); }
+    void poll();
+  })();
+  </script>
+</body>
+</html>

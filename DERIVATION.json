@@ -1,0 +1,13 @@
+{
+  "edition": "EARTH_GROOVE_NUCC_V2",
+  "version": "0.2.0",
+  "derivedOn": "2026-11-04",
+  "source": "../EARTH_GROOVE_NUCC",
+  "originalUnmodified": true,
+  "ports": {
+    "app": 3200,
+    "control": 3201
+  },
+  "deployment": "none",
+  "conceptStatus": "prototype for owner review"
+}
