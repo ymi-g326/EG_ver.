@@ -1,5 +1,5 @@
 {
-  "name": "earth-groove-nucc-v2",
+  "name": "earth-groove-pf",
   "version": "0.2.0",
   "private": true,
   "engines": {
@@ -8,11 +8,11 @@
   "scripts": {
     "dev": "node scripts/dev-control.mjs",
     "build": "next build --webpack",
-    "start": "next start --hostname 127.0.0.1 --port 3200",
+    "start": "next start --hostname 127.0.0.1 --port 3300",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "lint": "eslint components/earth-record.tsx app/api/orbit/route.ts lib/mission.ts lib/orbit.ts",
-    "dev:app": "next dev --webpack --hostname 127.0.0.1 --port 3200"
+    "dev:app": "next dev --webpack --hostname 127.0.0.1 --port 3300"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -73,5 +73,5 @@
     }
   },
   "packageManager": "pnpm@11.25.0",
-  "description": "Independent V2 listening-player study for Ten-Koh 2"
+  "description": "Independent portfolio edition of Earth Groove"
 }

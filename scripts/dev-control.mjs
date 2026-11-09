@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const appUrl = 'http://127.0.0.1:3200';
-const controlUrl = 'http://127.0.0.1:3201';
+const appUrl = 'http://127.0.0.1:3300';
+const controlUrl = 'http://127.0.0.1:3301';
 const token = randomBytes(32).toString('hex');
 const nonce = randomBytes(18).toString('base64');
 const page = readFileSync(new URL('./dev-control.html', import.meta.url), 'utf8')
@@ -23,7 +23,7 @@ function portAvailable() {
   return new Promise((resolve) => {
     const probe = createProbe();
     probe.once('error', () => resolve(false));
-    probe.listen(3200, '127.0.0.1', () => probe.close(() => resolve(true)));
+    probe.listen(3300, '127.0.0.1', () => probe.close(() => resolve(true)));
   });
 }
 function signalChild(processToSignal, signal) {
@@ -38,14 +38,14 @@ async function start() {
   try {
     if (!(await portAvailable())) {
       status = 'error';
-      detail = '3200番ポートが別のプロセスに使われています。既存プロセスは停止していません。';
+      detail = '3300番ポートが別のプロセスに使われています。既存プロセスは停止していません。';
       return;
     }
     status = 'starting';
     detail = '';
     const launched = spawn(process.execPath, [
       fileURLToPath(new URL('../node_modules/next/dist/bin/next', import.meta.url)),
-      'dev', '--webpack', '--hostname', '127.0.0.1', '--port', '3200',
+      'dev', '--webpack', '--hostname', '127.0.0.1', '--port', '3300',
     ], { cwd: root, stdio: 'inherit', detached: process.platform !== 'win32',
       env: { ...process.env, NODE_ENV: 'development' } });
     child = launched;
@@ -100,7 +100,7 @@ const server = createServer(async (request, response) => {
     response.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
     response.end(JSON.stringify(body));
   }
-  if (request.headers.host !== '127.0.0.1:3201') return json(403, { error: 'LOCAL HOST ONLY' });
+  if (request.headers.host !== '127.0.0.1:3301') return json(403, { error: 'LOCAL HOST ONLY' });
   const url = new URL(request.url, controlUrl);
   if (request.method === 'GET' && url.pathname === '/') {
     response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -123,8 +123,8 @@ const server = createServer(async (request, response) => {
   json(202, snapshot());
 });
 server.on('error', error => { console.error(`管理サーバーを起動できません: ${error.message}`); process.exitCode = 1; });
-server.listen(3201, '127.0.0.1', () => {
-  console.log(`\nEARTH GROOVE NUCC V2 開発用管理: ${controlUrl}\n`);
+server.listen(3301, '127.0.0.1', () => {
+  console.log(`\nEARTH GROOVE PF 開発用管理: ${controlUrl}\n`);
   void start().catch(error => { status = 'error'; detail = error.message; });
 });
 async function shutdown() {

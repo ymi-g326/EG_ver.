@@ -1,14 +1,15 @@
-# EARTH GROOVE NUCC V2 · VOL. 02
+# EARTH GROOVE PF
 
-2026-11-04 に `../EARTH_GROOVE_NUCC` から作った、独立したUI・サウンドの派生版。
-元のNUCC版と EARTH_RECORD_v0.1 は変更しない。公開・デプロイ設定は引き継がない。
+2026-11-09に提出済みの `EARTH_GROOVE_NUCC_V2` から分けた、PF用の独立したGitリポジトリ。
+元のV2・NUCC版・EARTH_RECORD_v0.1は変更しない。元のGitリモート・公開先は引き継がない。
+UIは現状を保ち、通信・音声・スクラッチの不具合修正を優先する。
 
 ## 起動
 
-- `pnpm dev`：V2管理 http://127.0.0.1:3201/ と V2本体 http://127.0.0.1:3200/
-- `pnpm dev:app`：V2本体のみ起動。
-- `pnpm build` / `pnpm start`：本番ビルドと3200番での起動。
-- 現行版の3100 / 3101とは独立して操作する。
+- `pnpm dev`：PF管理 http://127.0.0.1:3301/ と PF本体 http://127.0.0.1:3300/
+- `pnpm dev:app`：PF本体のみ起動。
+- `pnpm build` / `pnpm start`：本番ビルドと3300番での起動。
+- 現行版の3100 / 3101、V2の3200 / 3201とは独立して操作する。
 - `node_modules` も独立したAPFS複製。元フォルダへのシンボリックリンクではない。
 
 ## V2の体験

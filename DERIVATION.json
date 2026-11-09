@@ -1,13 +1,14 @@
 {
-  "edition": "EARTH_GROOVE_NUCC_V2",
+  "edition": "EARTH_GROOVE_PF",
   "version": "0.2.0",
-  "derivedOn": "2026-11-04",
-  "source": "../EARTH_GROOVE_NUCC",
+  "derivedOn": "2026-11-09",
+  "source": "EARTH_GROOVE_NUCC_V2",
+  "sourceBaselineCommit": "d2f2174",
   "originalUnmodified": true,
   "ports": {
-    "app": 3200,
-    "control": 3201
+    "app": 3300,
+    "control": 3301
   },
   "deployment": "none",
-  "conceptStatus": "prototype for owner review"
+  "purpose": "Independent portfolio debugging; existing UI preserved"
 }
