@@ -9,7 +9,7 @@ import type { GeoPoint } from "@/lib/globe-geometry";
 import type { AudioFeatures } from "@/lib/audio-engine";
 import type { TerrainData } from "@/lib/terrain-data";
 
-export type ExploreReading = { point: GeoPoint; key: string; features: AudioFeatures; weatherTime: string | null; receivedAt: string; weatherMissing: boolean; terrainMissing: boolean; weatherPending: boolean };
+export type ExploreReading = { point: GeoPoint; key: string; features: AudioFeatures; weather: ExploreWeather | null; terrain: TerrainData | null; imageCloud: number; weatherTime: string | null; receivedAt: string; weatherMissing: boolean; terrainMissing: boolean; weatherPending: boolean };
 
 /** Explorer reads stay separate from the satellite: late or failed requests never replace another location. */
 export function useExploreEarth(point: GeoPoint | null, image: RefObject<HTMLImageElement | null>, imageReady: boolean) {
@@ -40,6 +40,7 @@ export function useExploreEarth(point: GeoPoint | null, image: RefObject<HTMLIma
         if (!geography) throw new Error("Invalid geographic position");
         setReading(current => current?.key === key ? current : {
           point: selected, key, features: exploreFeatures(selected, visual, isLandAt(latitude, longitude) ?? true, geography.landFraction, null, null),
+          weather: null, terrain: null, imageCloud: visual.cloud,
           weatherTime: null, receivedAt: new Date().toISOString(), weatherMissing: true,
           terrainMissing: geography.landFraction > .08, weatherPending: true,
         });
@@ -56,7 +57,7 @@ export function useExploreEarth(point: GeoPoint | null, image: RefObject<HTMLIma
         if (!active) return;
         const weather = weatherResult.status === "fulfilled" ? weatherResult.value : null;
         const terrain = terrainResult.status === "fulfilled" ? terrainResult.value : null;
-        setReading(current => ({ point: selected, key, features: exploreFeatures(selected, visual, isLandAt(latitude, longitude) ?? true, geography.landFraction, weather, terrain, current?.key === key ? current.features.tonality : "major"), weatherTime: weather?.weatherModelTime ?? null,
+        setReading(current => ({ point: selected, key, weather, terrain, imageCloud: visual.cloud, features: exploreFeatures(selected, visual, isLandAt(latitude, longitude) ?? true, geography.landFraction, weather, terrain, current?.key === key ? current.features.tonality : "major"), weatherTime: weather?.weatherModelTime ?? null,
           receivedAt: new Date().toISOString(), weatherMissing: weather?.windSpeed == null, terrainMissing: geography.landFraction > .08 && terrain === null, weatherPending: false }));
         setFailure(null);
       } catch {

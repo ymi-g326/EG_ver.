@@ -3,11 +3,9 @@ import type { GeoPoint } from "./globe-geometry";
 import { chooseGround, type VisualFeatures } from "./surface-analysis";
 import { deriveCloudTonality } from "./cloud-harmony";
 import type { TerrainData } from "./terrain-data";
+import type { InspectEnvironment } from "./inspect-data";
 
-export type ExploreWeather = {
-  temperature: number | null; cloudCover: number | null; windSpeed: number | null;
-  waveHeight: number | null; isDay: number | null; weatherModelTime?: string | null;
-};
+export type ExploreWeather = InspectEnvironment;
 
 export function normalizeView(point: GeoPoint): GeoPoint | null {
   if (!Number.isFinite(point.latitude) || !Number.isFinite(point.longitude)) return null;

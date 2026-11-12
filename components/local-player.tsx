@@ -140,7 +140,7 @@ export default function LocalPlayer() {
       scratchReady={diagnostics?.scratch.ready ?? false} onScratchStart={held => engineRef.current?.beginScratch(held)} onScratchRelease={() => engineRef.current?.releaseScratch()} onScratchEnd={() => engineRef.current?.endScratch()}
       natureLevel={natureLevel} onNatureLevel={value => { setNatureLevel(value); engineRef.current?.setNatureLevel(value / 100); }} onNext={requestNext}
       needsReconnect={!!needsResume} onReconnect={() => { try { engineRef.current?.start(); setPlaying(true); setError(""); } catch { setError("音声を開始できませんでした。"); } }} />} inspection={
-    <InspectPlayer features={active} point={null} mode="local" playing={playing} ready={!!scene}
+    <InspectPlayer onListeningMode={changeListeningMode} tempo={tempo} onTempo={changeTempo} features={active} point={null} mode="local" playing={playing} ready={!!scene}
       levels={levels} listeningMode={listeningMode} runtime={diagnostics?.tempo??null} volume={volume}
       onToggle={togglePlayback} onVolume={value=>{setVolume(value);engineRef.current?.setVolume(value/100);}} readDiagnostics={readAudioDiagnostics} active={detailView} />} />
     <div className="v2-detail-wrap" hidden><button type="button" className="v2-back-button" onClick={() => setDetailView(false)}>← TOUCH <span>再生画面へ戻る · 演奏はそのまま続きます</span></button>

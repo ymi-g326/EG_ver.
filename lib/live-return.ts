@@ -1,19 +1,19 @@
 import type { GeoPoint } from "./globe-geometry";
 
-export const LIVE_RETURN_IDLE_MS = 10_000;
 export const LIVE_RETURN_GLIDE_MS = 3_600;
 export const LIVE_RETURN_CHECK_MS = 50;
 
-/** Playing scratches return on release; paused views and chosen places retain the idle clock. */
+/** Starting at a selected place pins it. A playing scratch returns on release. */
 export class LiveReturnIdle {
   private lastActivity = 0;
   private away = false;
-  private returnOnRelease = true;
+  private autoReturn = true;
   private pointers = new Set<number>();
   private keys = new Set<string>();
   get isAway() { return this.away; }
+  get isInteracting() { return !!this.pointers.size || !!this.keys.size; }
   touch(now: number) { if (Number.isFinite(now)) this.lastActivity = now; }
-  leaveLive(now: number, returnOnRelease = true) { this.away = true; this.returnOnRelease = returnOnRelease; this.touch(now); }
+  leaveLive(now: number, autoReturn = true) { this.away = true; this.autoReturn = autoReturn; this.touch(now); }
   hold(id: number, now: number) { this.pointers.add(id); this.touch(now); }
   release(id: number, now: number) { if (this.pointers.delete(id)) this.touch(now); }
   holdKey(key: string, now: number) { this.keys.add(key); this.touch(now); }
@@ -22,8 +22,7 @@ export class LiveReturnIdle {
   returned(now: number) { this.away = false; this.touch(now); }
   shouldReturn(now: number, enabled: boolean, playing = false) {
     if (!enabled) { this.touch(now); return false; }
-    return Number.isFinite(now) && this.away && !this.pointers.size && !this.keys.size
-      && ((playing && this.returnOnRelease) || now - this.lastActivity >= LIVE_RETURN_IDLE_MS);
+    return Number.isFinite(now) && this.away && playing && this.autoReturn && !this.isInteracting;
   }
 }
 

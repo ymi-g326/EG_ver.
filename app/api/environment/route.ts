@@ -7,6 +7,10 @@ type WeatherData = {
     wind_direction_10m?: number | null; is_day?: number | null; time?: string; interval?: number };
   current_units?: { wind_speed_10m?: string };
 };
+type MarineData = {
+  current?: { time?: string; interval?: number; wave_height?: number | null; ocean_current_velocity?: number | null };
+  current_units?: { ocean_current_velocity?: string };
+};
 
 async function getData(request: NextRequest) {
   const coordinates = parseCoordinates(request.nextUrl.searchParams);
@@ -44,7 +48,7 @@ async function getData(request: NextRequest) {
       next: { revalidate: 600 },
     }).then(async (response) => {
       if (!response.ok) throw new Error(`Marine ${response.status}`);
-      return (await response.json()) as { current?: Record<string, number | null> };
+      return (await response.json()) as MarineData;
     }),
   ]);
 
@@ -63,6 +67,8 @@ async function getData(request: NextRequest) {
       isDay: currentWeather?.is_day ?? null,
       waveHeight: currentMarine?.wave_height ?? null,
       oceanCurrent: currentMarine?.ocean_current_velocity ?? null,
+      oceanCurrentUnit: marine.status === "fulfilled" ? marine.value.current_units?.ocean_current_velocity ?? null : null,
+      marineModelTime: currentMarine?.time ? `${currentMarine.time}Z` : null,
       sampledAt: new Date().toISOString(),
       source: "Open-Meteo",
       availability: {

@@ -49,3 +49,13 @@ export function momentumReturnView(plan: MomentumReturnPlan, target: GeoPoint, e
     latitude: latitude(latitudeCoast + (destination.latitude - latitudeCoast) * ease),
   };
 }
+
+/** Tangent of the actual landing path, including wrapped longitude, for scratch playback. */
+export function momentumReturnMotion(plan: MomentumReturnPlan, target: GeoPoint, elapsedMs: number): GlobeMomentum {
+  if (!Number.isFinite(elapsedMs) || elapsedMs >= LIVE_RETURN_GLIDE_MS) return { longitude: 0, latitude: 0 };
+  if (elapsedMs <= 0) return { ...plan.motion };
+  const start = Math.max(0, elapsedMs - 4), end = Math.min(LIVE_RETURN_GLIDE_MS, elapsedMs + 4);
+  const a = momentumReturnView(plan, target, start), b = momentumReturnView(plan, target, end);
+  const seconds = (end - start) / 1000;
+  return { longitude: longitudeDelta(a.longitude, b.longitude) / seconds, latitude: (b.latitude - a.latitude) / seconds };
+}

@@ -1,13 +1,17 @@
 import { projectGlobe, type GeoPoint } from "./globe-geometry";
 export type OrbitalPoint = GeoPoint & { altitude?: number };
-const EARTH_RADIUS_KM = 6371;
+export const EARTH_DISPLAY_RADIUS_KM = 6371;
+/** The display is spherical; altitude is not exaggerated. Numeric altitude is ellipsoidal. */
+export function orbitDisplayScale(altitude: number | null | undefined) {
+  return altitude != null && Number.isFinite(altitude) && altitude >= 0 ? 1 + altitude / EARTH_DISPLAY_RADIUS_KM : null;
+}
 const RAD = Math.PI / 180;
 const clamp = (n: number) => Math.min(1, Math.max(0, n));
 
-/** Orthographic orbit at its real geocentric radius; far-side points outside the limb remain visible. */
+/** Orthographic sphere approximation at 1:1 height scale, not an ellipsoidal Earth renderer. */
 export function projectOrbit(point: OrbitalPoint, longitude: number, latitude: number, fallbackAltitude = 0) {
   const altitude = Number.isFinite(point.altitude) ? point.altitude! : fallbackAltitude;
-  const scale = 1 + Math.max(0, Number.isFinite(altitude) ? altitude : 0) / EARTH_RADIUS_KM;
+  const scale = orbitDisplayScale(altitude) ?? 1;
   const p = projectGlobe(point, longitude, latitude);
   return { x: p.x * scale, y: p.y * scale, z: p.z * scale,
     visible: p.z >= 0 || (p.x * p.x + p.y * p.y) * scale * scale > 1 };

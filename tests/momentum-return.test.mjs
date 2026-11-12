@@ -1,11 +1,25 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {moduleUrl} from './helpers/load-typescript.mjs';
-const {planMomentumReturn,momentumReturnView}=await import(moduleUrl(new URL('../lib/momentum-return.ts',import.meta.url)));
+const {planMomentumReturn,momentumReturnView,momentumReturnMotion}=await import(moduleUrl(new URL('../lib/momentum-return.ts',import.meta.url)));
 const {longitudeDelta,liveReturnView,LIVE_RETURN_GLIDE_MS}=await import(moduleUrl(new URL('../lib/live-return.ts',import.meta.url)));
 const {advanceGlobeMomentum}=await import(moduleUrl(new URL('../lib/globe-motion.ts',import.meta.url)));
 
 const duration=LIVE_RETURN_GLIDE_MS;
+
+test('scratch audio follows the landing tangent continuously and reaches zero speed at arrival',()=>{
+ for(const sign of [-1,1]){
+  const target={longitude:-175,latitude:-10},plan=planMomentumReturn({longitude:170,latitude:15},target,{longitude:sign*400,latitude:35});
+  assert.deepEqual(momentumReturnMotion(plan,target,0),plan.motion);
+  for(let t=8;t<duration-8;t+=16){
+   const velocity=momentumReturnMotion(plan,target,t);
+   assert.ok(Number.isFinite(velocity.longitude)&&Number.isFinite(velocity.latitude));
+   const a=momentumReturnView(plan,target,t-1),b=momentumReturnView(plan,target,t+1);
+   assert.ok(Math.abs(velocity.longitude-longitudeDelta(a.longitude,b.longitude)/.002)<.1);
+  }
+  assert.deepEqual(momentumReturnMotion(plan,target,duration),{longitude:0,latitude:0});
+ }
+});
 
 test('return entry retains the outgoing angular velocity instead of restarting at rest',()=>{
  for(const sign of [-1,1]){

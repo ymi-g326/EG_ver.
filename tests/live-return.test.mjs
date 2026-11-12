@@ -6,80 +6,26 @@ const {LiveReturnIdle, liveReturnView, longitudeDelta} = await import(moduleUrl(
 const {EarthAudioEngine} = await import(moduleUrl(new URL('../lib/audio-engine.ts',import.meta.url)));
 const {localFeatures} = await import(moduleUrl(new URL('../lib/local-journey.ts',import.meta.url)));
 
-test('free view returns once after 10 seconds; LIVE updates do not repeatedly trigger the cue',()=>{
- const idle=new LiveReturnIdle();
- assert.equal(idle.shouldReturn(60000,true),false);
- idle.leaveLive(1000);
- assert.equal(idle.shouldReturn(10999,true),false);
- assert.equal(idle.shouldReturn(11000,true),true);
- idle.returned(11000);
- assert.equal(idle.shouldReturn(90000,true),false);
+test('starting at a chosen place pins it; scratching arms an immediate release return',()=>{
+ const idle=new LiveReturnIdle();idle.leaveLive(0,false);
+ assert.equal(idle.shouldReturn(60000,true,true),false);
+ idle.leaveLive(61000,true);idle.hold(1,61000);
+ assert.equal(idle.shouldReturn(61001,true,true),false);
+ idle.release(1,62000);assert.equal(idle.shouldReturn(62000,true,true),true);
+ idle.returned(62000);assert.equal(idle.shouldReturn(100000,true,true),false);
 });
 
-test('every real input restarts the deadline, and held or cancelled pointers cannot cause a mid-gesture return',()=>{
- const idle=new LiveReturnIdle();idle.leaveLive(0);idle.touch(9000);
- assert.equal(idle.shouldReturn(11000,true),false);
- idle.hold(1,10000);idle.hold(2,11000);
- assert.equal(idle.shouldReturn(100000,true),false);
- idle.release(1,100000);assert.equal(idle.shouldReturn(140000,true),false);
- idle.release(2,140000);assert.equal(idle.shouldReturn(149999,true),false);
- assert.equal(idle.shouldReturn(150000,true),true);
- idle.hold(1,150001);idle.releaseAll(160000);
- assert.equal(idle.shouldReturn(169999,true),false);assert.equal(idle.shouldReturn(170000,true),true);
-});
-
-test('LOCAL, hidden tabs, inspect, and unavailable LIVE data defer the deadline until enabled again',()=>{
+test('paused globe never auto returns, including after an armed scratch',()=>{
  const idle=new LiveReturnIdle();idle.leaveLive(0);
- assert.equal(idle.shouldReturn(30000,false),false);
- assert.equal(idle.shouldReturn(90000,false),false);
- assert.equal(idle.shouldReturn(90001,true),false);
- assert.equal(idle.shouldReturn(99999,true),false);
- assert.equal(idle.shouldReturn(100000,true),true);
+ assert.equal(idle.shouldReturn(60000,true,false),false);
 });
 
-test('playing returns immediately after the final pointer is released, then only once',()=>{
- const idle=new LiveReturnIdle();idle.leaveLive(1000);idle.hold(1,1000);idle.hold(2,1010);
- assert.equal(idle.shouldReturn(60000,true,true),false,'holding the globe must block the return');
- idle.release(1,60000);assert.equal(idle.shouldReturn(60001,true,true),false);
- idle.release(2,60010);assert.equal(idle.shouldReturn(60010,true,true),true,'no ten-second deadline after release');
- idle.returned(60010);assert.equal(idle.shouldReturn(100000,true,true),false);
-});
-
-test('paused gestures keep the ten-second delay; starting playback in free view can return immediately',()=>{
- const idle=new LiveReturnIdle();idle.leaveLive(0);idle.hold(1,0);idle.release(1,1000);
- assert.equal(idle.shouldReturn(1000,true,false),false);
- assert.equal(idle.shouldReturn(10999,true,false),false);
- assert.equal(idle.shouldReturn(11000,true,false),true);
- idle.touch(11000);assert.equal(idle.shouldReturn(11001,true,false),false);
- assert.equal(idle.shouldReturn(11001,true,true),true);
-});
-
-test('held arrow keys, cancellation and focus loss cannot leave playback stuck away or return during input',()=>{
- const idle=new LiveReturnIdle();idle.leaveLive(0);idle.holdKey('ArrowRight',0);idle.holdKey('ArrowUp',10);
- assert.equal(idle.shouldReturn(50000,true,true),false);
- idle.releaseKey('ArrowRight',50000);assert.equal(idle.shouldReturn(50001,true,true),false);
- idle.releaseKey('ArrowUp',50010);assert.equal(idle.shouldReturn(50010,true,true),true);
- idle.returned(50010);idle.leaveLive(60000);idle.hold(1,60000);idle.holdKey('ArrowLeft',60000);
- idle.releaseAll(60010);assert.equal(idle.shouldReturn(60010,true,true),true);
- idle.returned(60010);idle.leaveLive(70000);idle.hold(2,70000);idle.release(2,70010);
- assert.equal(idle.shouldReturn(70010,true,true),true,'a cancelled pointer is also released');
-});
-
-test('disabled LIVE conditions still block immediate returns until the player is eligible',()=>{
- const idle=new LiveReturnIdle();idle.leaveLive(0);idle.hold(1,0);idle.release(1,10);
- for(const now of [10,10000,90000])assert.equal(idle.shouldReturn(now,false,true),false);
- assert.equal(idle.shouldReturn(90001,true,true),true);
- idle.returned(90001);assert.equal(idle.shouldReturn(90002,true,true),false);
-});
-
-test('explicitly choosing a place retains its listening interval; scratching there arms release return again',()=>{
- const idle=new LiveReturnIdle();idle.leaveLive(1000,false);
- assert.equal(idle.shouldReturn(1001,true,true),false);
- assert.equal(idle.shouldReturn(10999,true,true),false);
- assert.equal(idle.shouldReturn(11000,true,true),true);
- idle.touch(11000);idle.leaveLive(11010);idle.hold(1,11010);
- assert.equal(idle.shouldReturn(11011,true,true),false);
- idle.release(1,11020);assert.equal(idle.shouldReturn(11020,true,true),true);
+test('all pointers and keys must be released; disabled or hidden views defer return',()=>{
+ const idle=new LiveReturnIdle();idle.leaveLive(0);idle.hold(1,0);idle.holdKey('ArrowRight',0);
+ idle.release(1,10);assert.equal(idle.shouldReturn(10,true,true),false);
+ idle.releaseKey('ArrowRight',20);assert.equal(idle.shouldReturn(20,false,true),false);
+ assert.equal(idle.shouldReturn(21,true,true),true);
+ idle.hold(2,30);idle.releaseAll(40);assert.equal(idle.shouldReturn(40,true,true),true);
 });
 
 test('return animation takes the short date-line path and ends at the latest satellite position',()=>{

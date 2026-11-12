@@ -6,7 +6,7 @@ import { geoPath } from "d3-geo";
 import { GLOBE_LAND, globeLandProjection } from "@/lib/globe-land";
 import { advanceGlobeMomentum, GlobeDragMomentum, momentumScratch, momentumSpeed, STILL_GLOBE } from "@/lib/globe-motion";
 import { liveReturnView, LIVE_RETURN_GLIDE_MS } from "@/lib/live-return";
-import { planMomentumReturn, momentumReturnView, type MomentumReturnPlan } from "@/lib/momentum-return";
+import { planMomentumReturn, momentumReturnView, momentumReturnMotion, type MomentumReturnPlan } from "@/lib/momentum-return";
 import { projectGlobe, scratchVelocity, rotateGlobeView, type GeoPoint } from "@/lib/globe-geometry";
 import { ScratchWaveTracker, type ScratchWaveSource } from "@/lib/scratch-feedback";
 
@@ -38,17 +38,17 @@ export default function RecordGlobe(props: Props) {
   const coast = useRef({ active: false, audio: false, initialSpeed: 0 });
   const [coasting, setCoasting] = useState(false);
   const [returning, setReturning] = useState(false);
-  const recenter = useRef<{ plan: MomentumReturnPlan; started: number } | null>(null);
+  const recenter = useRef<{ plan: MomentumReturnPlan; started: number; audio: boolean; initialSpeed: number } | null>(null);
   const manualView = useRef(false);
   const waveTracker = useRef(new ScratchWaveTracker());
   const waveOrigin = useRef({ x: 0, y: 0 });
-  const finishCoast = useCallback((resetWaves = true) => {
+  const finishCoast = useCallback((resetWaves = true, endAudio = true) => {
     momentum.current = { ...STILL_GLOBE };
     dragHistory.current.reset();
     coast.current.active = false; coast.current.audio = false;
     setCoasting(false);
     if (resetWaves) waveTracker.current.reset();
-    latest.current.onScratchEnd();
+    if (endAudio) latest.current.onScratchEnd();
   }, []);
   const pointer = useRef<{ id: number; x: number; y: number; time: number } | null>(null);
   const [keyboardFocus, setKeyboardFocus] = useState(false);
@@ -127,15 +127,22 @@ export default function RecordGlobe(props: Props) {
         } else if (state.centerToken !== previousCenter) {
           const carrying = state.playing && coast.current.active && elapsed <= 200 && !!canvas.clientWidth && !reducedMotion;
           const plan = planMomentumReturn(view, state.position, carrying ? momentum.current : STILL_GLOBE);
-          finishCoast(); manualView.current = false;
+          finishCoast(true, !carrying); manualView.current = false;
           // The origin is the previous painted pose: advance the first return frame too.
-          recenter.current = { plan, started: time - (carrying ? elapsed : 0) };
+          recenter.current = { plan, started: time - (carrying ? elapsed : 0), audio: carrying, initialSpeed: momentumSpeed(plan.motion) };
           previousCenter = state.centerToken; setReturning(true);
         }
         if (recenter.current && !pointer.current) {
           const age = reducedMotion ? LIVE_RETURN_GLIDE_MS : time - recenter.current.started;
           Object.assign(view, momentumReturnView(recenter.current.plan, state.position, age));
-          if (age >= LIVE_RETURN_GLIDE_MS) { recenter.current = null; setReturning(false); }
+          if (recenter.current.audio && state.playing && age < LIVE_RETURN_GLIDE_MS) {
+            const touch = momentumScratch(momentumReturnMotion(recenter.current.plan, state.position, age), recenter.current.initialSpeed);
+            state.onScratch(touch.velocity, touch.strength);
+          }
+          if (age >= LIVE_RETURN_GLIDE_MS || !state.playing) {
+            if (recenter.current.audio) { state.onScratchEnd(); recenter.current.audio = false; }
+            if (age >= LIVE_RETURN_GLIDE_MS) { recenter.current = null; setReturning(false); }
+          }
         } else if (state.followPosition && !manualView.current && !pointer.current) {
           Object.assign(view, liveReturnView(view, state.position, 1));
         }
@@ -225,7 +232,7 @@ export default function RecordGlobe(props: Props) {
         context.strokeStyle = color; context.lineWidth = 1;
         context.setLineDash(dashed ? [3, 5] : []); context.stroke(); context.setLineDash([]);
       };
-      for (let lat = -60; lat <= 60; lat += 30) line(Array.from({ length: 181 }, (_, i) => ({ latitude: lat, longitude: i * 2 - 180 })), "rgba(161,195,185,.12)");
+      for (let lat = -60; lat <= 60; lat += 30) if (lat !== 0) line(Array.from({ length: 181 }, (_, i) => ({ latitude: lat, longitude: i * 2 - 180 })), "rgba(161,195,185,.12)");
       for (let lon = -180; lon < 180; lon += 30) line(Array.from({ length: 91 }, (_, i) => ({ latitude: i * 2 - 90, longitude: lon })), "rgba(161,195,185,.12)");
       if(state.clouds && paintClouds(state,view,time)){
         context.save();context.imageSmoothingEnabled=true;context.filter="blur(.65px)";
@@ -235,6 +242,7 @@ export default function RecordGlobe(props: Props) {
       const shade = context.createLinearGradient(-radius, -radius, radius, radius);
       shade.addColorStop(0, "rgba(1,10,12,0)"); shade.addColorStop(.6, "rgba(1,10,12,.07)"); shade.addColorStop(1, "rgba(1,10,12,.8)");
       context.fillStyle = shade; context.fillRect(-radius, -radius, radius * 2, radius * 2);
+      line(Array.from({ length: 361 }, (_, i) => ({ latitude: 0, longitude: i - 180 })), "rgba(190,119,128,.5)");
       context.restore();
       context.beginPath(); context.arc(0, 0, radius, 0, Math.PI * 2); context.strokeStyle = "rgba(163,218,199,.32)"; context.lineWidth = 1; context.stroke();
       if(state.track){
@@ -355,7 +363,7 @@ export default function RecordGlobe(props: Props) {
   };
 
   return <div className={`v2-globe${keyboardFocus ? " has-keyboard-focus" : ""} ${gesture ? `is-${gesture}` : ""}${coasting ? " is-coasting" : ""}${returning ? " is-returning" : ""}`}>
-    <canvas ref={canvasRef} tabIndex={0} role="group" aria-label="地球儀。ドラッグまたは矢印キーで回転。再生中は回転と一緒に音をスクラッチします。中央の土地は『ここを聴く』で選べます。" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancel} onLostPointerCapture={cancel} onKeyDown={keyboard}
+    <canvas ref={canvasRef} tabIndex={0} role="group" aria-label="地球儀。ドラッグまたは矢印キーで回転。再生中は回転と一緒に音をスクラッチします。停止して場所を選び、再生すると中央の土地を聴けます。" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancel} onLostPointerCapture={cancel} onKeyDown={keyboard}
       onFocus={event => setKeyboardFocus(!pointerFocus.current && event.currentTarget.matches(":focus-visible"))}
       onBlur={() => { pointerFocus.current = false; setKeyboardFocus(false); }} />
     {returning && <span className="v2-coast-feedback" role="status">RETURNING TO LIVE</span>}

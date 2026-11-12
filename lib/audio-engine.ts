@@ -8,6 +8,7 @@ import { themeForProfile, motifInstrument, renderThemeVoice, type ThemeVoice } f
 import { cloudMotif, deriveCloudTonality } from "./cloud-harmony";
 import { deriveCloudSound } from "./cloud-sound";
 import { deriveTerrainSound, terrainChord } from "./terrain-sound";
+import { listeningScore, type ListeningPhrase } from "./listening-score";
 import { DEFAULT_TEMPO, resolveTempo, advanceTempo, type TempoRuntime, type TempoSettings, type TempoProfile } from "./audio-tempo";
 
 export type AudioFeatures = {
@@ -109,6 +110,8 @@ export type AudioDiagnosticFrame = {
   brightness: number; cloud: number; bpm: number; timestamp: number;
   terrainRelief: number; terrainElevation: number | null; terrainRange: number | null; landFraction: number; landProfile: EarthSurfaceProfile; targetBpm: number;
   cloudComplexity: number; source: "live" | "audition" | "local" | "explore"; scenarioId?: string;
+  phrase?: ListeningPhrase; detailSource?: "cloud-texture" | "surface-texture";
+  motifNotesPerBar?: number; ornamentNotesPerBar?: number;
 };
 export type AudioDiagnostics = {
   listeningMode: ListeningMode;
@@ -334,6 +337,7 @@ export class EarthAudioEngine {
       if (this.reverb) { const impulse = this.reverb.buffer; this.reverb.buffer = null; this.reverb.buffer = impulse; }
     }
     this.step = 0;
+    this.listeningBar = -1;
     this.diagnosticEvents = [];
     this.diagnosticFrame = null;
   }
@@ -858,6 +862,7 @@ export class EarthAudioEngine {
     if (step === 0) this.listeningBar++;
     const ambient = this.listeningMode === "ambient";
     const sky = deriveCloudSound(f);
+    const score = listeningScore(f, ambient, this.listeningBar);
     const terrain = deriveTerrainSound(f);
     const profile = surfaceProfile(f);
     const beat = 60 / bpm;
@@ -876,13 +881,15 @@ export class EarthAudioEngine {
     this.master?.gain.setTargetAtTime(this.volume * .48, time, .1);
     if (this.diagnosticsEnabled) this.diagnosticFrame = {
       profile, baseMidi: base, tonality: f.tonality, motifInstrument: instrument, motifOnly: false,
-      cutoffHz: cutoff, reverbGain: reverb, activity: ambient ? .15 : .4,
+      cutoffHz: cutoff, reverbGain: reverb, activity: score.detail,
       memoryCount: 1, brightness: sky.brightness, cloud: f.cloud,
       bpm, timestamp: Date.now(), terrainRelief: terrain.relief,
       terrainElevation: f.terrainElevation ?? null, terrainRange: f.terrainRange ?? null,
       landFraction: terrain.landFraction, landProfile: terrain.landProfile as EarthSurfaceProfile,
       targetBpm: this.tempoRuntime?.targetBpm ?? bpm, cloudComplexity: sky.complexity,
       source: f.source ?? "live", scenarioId: f.scenarioId,
+      phrase: score.phrase, detailSource: score.detailSource,
+      motifNotesPerBar: score.motifSteps.length, ornamentNotesPerBar: score.ornamentSteps.length,
     };
     // One broad natural bed per bar, rather than chopped recordings on every beat.
     if (step === 0) {
@@ -894,28 +901,59 @@ export class EarthAudioEngine {
         this.recordDiagnostic("pad", time, chord.map(n => root + 12 + n), .021, profile, beat * 9, "SOFT CHORD");
       }
     }
-    const bassStep = ambient ? step === 0 && this.listeningBar % 2 === 0 : step === 0 || step === 8;
+    const bassStep = score.bassSteps.includes(step);
     if (bassStep) {
-      const level = ambient ? .045 : .085;
-      this.voice(time, midiToHz(root - 12), level, beat * (ambient ? 6 : 2.8), "sine", ambient ? .4 : .12, 700);
-      this.recordDiagnostic("bass", time, [root - 12], level, profile, beat * 3, "WARM SUB");
+      const level = ambient ? .045 : .065;
+      const note = root - 12 + (!ambient && step === 14 ? 7 : 0);
+      const duration = beat * (ambient ? 6 : .72);
+      this.voice(time, midiToHz(note), level, duration, ambient ? "sine" : "triangle", ambient ? .4 : .012, 700);
+      this.recordDiagnostic("bass", time, [note], level, profile, duration, ambient ? "WARM SUB" : "GROOVE BASS");
       this.onLayer?.({ layer: "bass", level });
     }
-    const motifStep = ambient ? step === 0 || (step === 10 && this.listeningBar % 2 === 1) : [0, 6, 10, 14].includes(step);
+    const ornament = score.ornamentSteps.includes(step);
+    const motifStep = score.motifSteps.includes(step) || ornament;
     if (motifStep) {
       const motif = cloudMotif(f.tonality, step, this.listeningBar * 3);
-      const midi = root + 12 + motif.interval + (this.listeningBar % 4 === 3 ? Math.min(terrain.leap, 12) : 0);
-      const duration = beat * (f.tonality === "minor" ? 2.5 : 1.6);
-      const level = ambient ? .065 : .095;
+      const midi = root + 12 + motif.interval + (ornament ? 12 : 0) + (this.listeningBar % 4 === 3 ? Math.min(terrain.leap, 12) : 0);
+      const duration = beat * (ambient ? (f.tonality === "minor" ? 2.5 : 1.6) : ornament ? .32 : .8);
+      const level = ambient ? .065 : ornament ? .032 : .06;
       this.motifVoice(time, midiToHz(midi), level, profile, duration);
-      this.recordDiagnostic("motif", time, [midi], level, profile, duration, instrument);
+      this.recordDiagnostic("motif", time, [midi], level, profile, duration, ornament ? `${instrument} / ORNAMENT` : instrument);
       this.onLayer?.({ layer: "motif", level });
     }
-    if (!ambient && (step === 4 || step === 12)) {
+    if (score.kickSteps.includes(step)) {
+      this.kickVoice(time, .11);
+      this.recordDiagnostic("pulse", time, [], .11, profile, .22, "SOFT KICK");
+      this.onLayer?.({ layer: "pulse", level: .11 });
+    }
+    if (score.hatSteps.includes(step)) {
+      const level = step % 4 === 2 ? .017 : .009;
+      this.noise(time, level, .045, "highpass", 2600);
+      this.recordDiagnostic("pulse", time, [], level, profile, .045, "TEXTURE HAT");
+      this.onLayer?.({ layer: "pulse", level });
+    }
+    if (score.brushSteps.includes(step)) {
       this.noise(time, .026, .16, "lowpass", 1600);
       this.recordDiagnostic("pulse", time, [], .026, profile, .16, "SOFT BRUSH");
       this.onLayer?.({ layer: "pulse", level: .026 });
     }
+  }
+
+  private kickVoice(time: number, level: number) {
+    const context = this.context;
+    if (!context || !this.voiceBus) return;
+    const source = context.createOscillator();
+    const gain = context.createGain();
+    source.type = "sine";
+    source.frequency.setValueAtTime(125, time);
+    source.frequency.exponentialRampToValueAtTime(46, time + .09);
+    gain.gain.setValueAtTime(.0001, time);
+    gain.gain.exponentialRampToValueAtTime(level, time + .004);
+    gain.gain.exponentialRampToValueAtTime(.0001, time + .22);
+    source.connect(gain); gain.connect(this.voiceBus);
+    source.addEventListener("ended", () => gain.disconnect(), { once: true });
+    this.trackSource(source);
+    source.start(time); source.stop(time + .24);
   }
 
   private scheduleStep(time: number, step: number, f: AudioFeatures, bpm: number) {

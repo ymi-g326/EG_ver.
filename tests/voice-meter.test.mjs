@@ -46,7 +46,7 @@ test('actual LIVE and LOCAL music events move LOW END in both styles and RHYTHM 
   }
   assert.ok(peaks.bass>.5,`${source}/${mode}: bass`);assert.ok(peaks.motif>.6);assert.ok(peaks.pad>.5);
   assert.equal(peaks.pulse>0,mode==='groove');
-  assert.ok(engine.getDiagnostics().events.some(event=>event.instrument==='WARM SUB'));
+  assert.ok(engine.getDiagnostics().events.some(event=>event.instrument===(mode==='groove'?'GROOVE BASS':'WARM SUB')));
   if(mode==='groove')assert.ok(engine.getDiagnostics().events.some(event=>event.instrument==='SOFT BRUSH'));
  });
 });

@@ -56,7 +56,7 @@ type Position = {
   latitude: number;
   longitude: number;
   altitude: number;
-  velocity: number;
+  velocity: number | null;
   timestamp: number;
 };
 
@@ -226,7 +226,7 @@ function readPosition(satrec: satellite.SatRec, date: Date): Position | null {
   const geo = satellite.eciToGeodetic(result.position, gmst);
   const velocity = result.velocity && typeof result.velocity !== "boolean"
     ? Math.hypot(result.velocity.x, result.velocity.y, result.velocity.z)
-    : 7.66;
+    : null;
 
   return {
     latitude: satellite.degreesLat(geo.latitude),
@@ -240,7 +240,7 @@ function readPosition(satrec: satellite.SatRec, date: Date): Position | null {
 function makeTrack(satrec: satellite.SatRec, origin: Date) {
   const past: Position[] = [];
   const future: Position[] = [];
-  for (let minute = -46; minute <= 94; minute += 2) {
+  for (let minute = -46; minute <= 94; minute += .25) {
     const point = readPosition(satrec, new Date(origin.getTime() + minute * 60_000));
     if (!point) continue;
     if (minute <= 0) past.push(point);
@@ -986,9 +986,9 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
     explorePointRef.current = normalized; setExplorePoint(normalized);
     audioRef.current?.endScratch();
   };
-  const returnLive = () => {
+  const returnLive = (carryScratch = false) => {
     explorePointRef.current = null; exploreFeaturesRef.current = null; setExplorePoint(null);
-    audioRef.current?.endScratch();
+    if (!carryScratch) audioRef.current?.endScratch();
     if (!position || !imageReady) { audioRef.current?.stop(); setPlaying(false); }
   };
   const playerStatus = explorePoint ? exploration.error ?? (exploration.pending ? "選んだ土地を取得中 · 直前の音を続けています" : selectedReading?.weatherPending ? "選んだ地点の地表を演奏 · 気象モデルを取得中" : selectedReading?.weatherMissing ? "選んだ地点を演奏 · 風は欠測のため直前のBPMを維持" : playing ? "選んだ地点の風景を聴いています · LIVEで衛星の位置へ戻れます" : "選んだ地点を演奏できます") : !position ? orbitStatus === "degraded" ? "軌道を取得できません。再取得かLOCALで聴けます。" : "てんこう2の軌道を取得中" : !imageReady ? imageFailed ? imageRetryDelay(imageFailures) !== null ? "衛星位置は取得済み · 地表画像を自動再取得します" : "衛星位置は取得済み · 地表画像を取得できません。再取得かLOCALで聴けます。" : "衛星位置は取得済み · 地表画像を取得中" : auditionId ? "合成条件の試聴中 · 実際の地球とは連動しません" : orbitStatus === "reference" ? "保存した軌道から現在位置を推定" : playing ? "てんこう2と、地球を聴いています" : "そのまま聴く。ときどき、音に触れる。";
@@ -1014,13 +1014,17 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
       }}
       needsReconnect={playing && contextState !== "running"} onReconnect={() => { audioRef.current?.start(); setPlaying(true); }} />} inspection={
     <InspectPlayer clouds={clouds} onClouds={setClouds} features={playerFeatures}
+      onListeningMode={changeListeningMode} tempo={tempoSettings} onTempo={changeTempo}
+      orbit={orbitData} satelliteState={position} track={track} environment={activeAudition ? null : explorePoint ? selectedReading?.weather : environment}
+      terrain={activeAudition ? null : explorePoint ? selectedReading?.terrain : terrainData}
+      imageCloud={activeAudition ? null : explorePoint ? selectedReading?.imageCloud : imageReady ? features.cloud : null}
       point={activeAudition?null:selectedReading?.point??position} satellite={position} mode={activeAudition?'audition':explorePoint?'explore':'live'}
       playing={playing} ready={playerReady} levels={voiceLevels} listeningMode={listeningMode} runtime={tempoRuntime} volume={volume} pending={!!explorePoint && exploration.pending}
       observation={imageReady?IMAGE_DATE:undefined} orbitEpoch={orbitData?.epoch} weatherTime={explorePoint?selectedReading?.weatherTime:environment.weatherModelTime}
       onToggle={togglePlayback} onVolume={value=>{setVolume(value);audioRef.current?.setVolume(value/100);}} readDiagnostics={readAudioDiagnostics} orbitPaths={{past:pastPath,future:futurePath}} contourRef={contourRef} active={detailView} />} /> }
     <div className="v2-detail-wrap" hidden={player}>
     {player && <button type="button" className="v2-back-button" onClick={() => setDetailView(false)}>← TOUCH <span>再生画面へ戻る · 演奏はそのまま続きます</span></button>}
-    {explorePoint && <section className="v2-explore-detail" aria-label="選択した土地の演奏"><strong>EXPLORE · 選んだ土地を演奏</strong><p>選択地点 {explorePoint.latitude.toFixed(3)}°, {explorePoint.longitude.toFixed(3)}° · {playerStatus}</p><p>適用中：{selectedReading ? `${selectedReading.point.latitude.toFixed(3)}°, ${selectedReading.point.longitude.toFixed(3)}° / ${selectedReading.features.earthProfile} / 雲 ${Math.round(selectedReading.features.cloud * 100)}% / 風 ${selectedReading.features.wind ?? "欠測"} m/s / ${selectedReading.features.tonality}` : "取得待ち（直前の演奏を継続）"}</p><small>下の地図と取得表は衛星のLIVE側。音の開発モニターではEXPLOREの適用値を表示します。</small><button type="button" onClick={returnLive}>衛星のLIVEへ戻る</button></section>}
+    {explorePoint && <section className="v2-explore-detail" aria-label="選択した土地の演奏"><strong>EXPLORE · 選んだ土地を演奏</strong><p>選択地点 {explorePoint.latitude.toFixed(3)}°, {explorePoint.longitude.toFixed(3)}° · {playerStatus}</p><p>適用中：{selectedReading ? `${selectedReading.point.latitude.toFixed(3)}°, ${selectedReading.point.longitude.toFixed(3)}° / ${selectedReading.features.earthProfile} / 雲 ${Math.round(selectedReading.features.cloud * 100)}% / 風 ${selectedReading.features.wind ?? "欠測"} m/s / ${selectedReading.features.tonality}` : "取得待ち（直前の演奏を継続）"}</p><small>下の地図と取得表は衛星のLIVE側。音の開発モニターではEXPLOREの適用値を表示します。</small><button type="button" onClick={() => returnLive()}>衛星のLIVEへ戻る</button></section>}
     <main className="earth-app nucc-edition">
       <img
         ref={imageRef}
@@ -1169,7 +1173,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
               <div><span>LAT</span><strong>{position ? `${position.latitude >= 0 ? "+" : ""}${position.latitude.toFixed(4)}°` : "—"}</strong></div>
               <div><span>LON</span><strong>{position ? `${position.longitude >= 0 ? "+" : ""}${position.longitude.toFixed(4)}°` : "—"}</strong></div>
               <div><span>ALT</span><strong>{position ? `${position.altitude.toFixed(0)} KM` : "—"}</strong></div>
-              <div><span>VEL</span><strong>{position ? `${position.velocity.toFixed(2)} KM/S` : "—"}</strong></div>
+              <div><span>VEL</span><strong>{position?.velocity != null ? `${position.velocity.toFixed(2)} KM/S` : "—"}</strong></div>
             </div>
           </div>
           <div className="map-footer">
@@ -1270,7 +1274,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
                     className={`voice-channel sound-${item.layer} ${level > 0.08 && playing ? "active" : ""}`}
                   >
                     <div className="voice-heading"><span>{item.label}</span><i /></div>
-                    <strong title={VOICE_DRIVERS[item.layer]}>{player && !activeAudition && item.layer !== 'motif' ? item.layer === 'pad' ? 'NATURE + SOFT CHORD' : item.layer === 'bass' ? 'WARM SUB' : listeningMode === 'ambient' ? 'REST' : 'SOFT BRUSH' : item.layer==='motif'&&activeAudition?.motifStyle==='original'?'ORIGINAL FM':VOICE_TIMBRES[soundSurface][item.layer]}</strong>
+                    <strong title={VOICE_DRIVERS[item.layer]}>{player && !activeAudition && item.layer !== 'motif' ? item.layer === 'pad' ? 'NATURE + SOFT CHORD' : item.layer === 'bass' ? listeningMode === 'groove' ? 'GROOVE BASS' : 'WARM SUB' : listeningMode === 'ambient' ? 'REST' : 'KICK + HAT + BRUSH' : item.layer==='motif'&&activeAudition?.motifStyle==='original'?'ORIGINAL FM':VOICE_TIMBRES[soundSurface][item.layer]}</strong>
                     <small>{activeAudition?.motifOnly?(item.layer==='motif'?'SYNTH ONLY':'MUTED'):`${soundMix.mixed?`OCN + ${soundMixLand.code}`:naturalSource.code} FIELD + SYNTH`}</small>
                     <div className="voice-meter" aria-label={`${item.label} activity ${Math.round(level * 100)} percent`}>
                       <span style={{ transform: `scaleX(${Math.max(0.025, level)})` }} />

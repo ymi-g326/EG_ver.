@@ -64,7 +64,12 @@ export default function PlayerViews({ inspect, onChange, touch, inspection, load
     return () => { cancelAnimationFrame(frame); window.clearTimeout(swap); window.clearTimeout(end); };
   }, [inspect]);
 
-  return <StyleFeedback><div className={`v2-views ${changing ? "is-switching" : ""}`} data-view={displayed ? "inspect" : "touch"}>
+  return <StyleFeedback><div className={`v2-views ${changing ? "is-switching" : ""}`} data-view={displayed ? "inspect" : "touch"}
+    onDragStartCapture={event => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('input, textarea, [contenteditable]:not([contenteditable="false"])')) return;
+      event.preventDefault();
+    }}>
     <div className="v2-persistent-switch" aria-label="画面の切り替え">
       <button type="button" role="switch" aria-label="INSPECT表示" aria-checked={inspect} aria-disabled={changing} onClick={() => { if (!changing) onChange(!inspect); }}>
         <span className="v2-switch-thumb" aria-hidden="true" />
