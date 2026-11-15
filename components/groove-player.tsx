@@ -2,12 +2,14 @@
 
 import { appPath } from "@/lib/app-path";
 
-import { useEffect, useRef, useState, useCallback, type CSSProperties, type RefObject } from "react";
+import { useEffect, useRef, useState, useCallback, useId, type CSSProperties, type RefObject } from "react";
 import { ArrowUpRight, AudioLines, Cloud, Info, LocateFixed, Pause, Play, Radio, RotateCcw, SlidersHorizontal, Volume2, Wind, X } from "lucide-react";
 import { VOICE_COLORS } from "@/lib/voice-colors";
 import type { OrbitalPoint } from "@/lib/globe-atmosphere";
 import { useStyleFeedback, useScratchFeedback } from "@/components/style-feedback";
 import type { ScratchWaveSource } from "@/lib/scratch-feedback";
+import StartupStatus from "@/components/startup-status";
+import type { StartupConnection } from "@/lib/startup-progress";
 import RecordGlobe from "@/components/record-globe";
 import MissionMark from "@/components/mission-mark";
 import { LiveReturnIdle, LIVE_RETURN_CHECK_MS } from "@/lib/live-return";
@@ -26,6 +28,7 @@ type Props = {
   clouds?: boolean; onClouds?: (enabled:boolean) => void;
   playing: boolean;
   ready: boolean;
+  startup?: StartupConnection;
   volume: number;
   levels: Record<AudioLayer, number>;
   listeningMode: ListeningMode;
@@ -70,6 +73,9 @@ const COLORS = VOICE_COLORS;
 
 export default function GroovePlayer(props: Props) {
   const clouds = props.clouds ?? false;
+  const [soundMenuOpen, setSoundMenuOpen] = useState(false);
+  const soundMenuId = useId();
+  const soundMenuButton = useRef<HTMLButtonElement>(null);
   const styleFeedback = useStyleFeedback();
   const scratchFeedback = useScratchFeedback();
   const scratchWave = useCallback((source: ScratchWaveSource) => {
@@ -149,8 +155,8 @@ export default function GroovePlayer(props: Props) {
   const motif = motifInstrument(props.features.earthProfile);
   const bpm = props.runtime?.bpm ?? (props.tempo.mode === "manual" ? props.tempo.manualBpm : null);
   const local = props.mode === "local";
-  const followingSatellite = followingLive && !props.explore && !local;
-  const followLabel = followingSatellite ? "てんこう2を追従中…" : "てんこう2に帰還";
+  const followingSatellite = followingLive && !props.explore && !local && !!props.position;
+  const followLabel = !props.position && !local ? "てんこう2の位置を取得中" : followingSatellite ? "てんこう2を追従中…" : "てんこう2に帰還";
   const loaded = props.ready;
   const rhythmResting = props.listeningMode === "ambient" && props.features.source !== "audition";
   const coordinates = props.explore ? props.explore.point : props.position;
@@ -168,11 +174,15 @@ export default function GroovePlayer(props: Props) {
     if (demoTimer.current !== null) window.clearTimeout(demoTimer.current);
     demoTimer.current = window.setTimeout(() => scratch(-.65), 140);
   };
-  return <main ref={rootRef} className={`groove-v2 ${props.playing ? "is-playing" : ""}`}
-    onPointerDownCapture={event => idle.current.hold(event.pointerId, performance.now())}
+  return <main ref={rootRef} className={`groove-v2 ${props.playing ? "is-playing" : ""}`} data-sound-menu={soundMenuOpen}
+    onPointerDownCapture={event => {
+      idle.current.hold(event.pointerId, performance.now());
+      if (soundMenuOpen && event.target instanceof Element && !event.target.closest('.v2-primary-controls')) setSoundMenuOpen(false);
+    }}
     onPointerUpCapture={event => idle.current.release(event.pointerId, performance.now())}
     onPointerCancelCapture={event => idle.current.release(event.pointerId, performance.now())}
     onKeyDownCapture={event => {
+      if (event.key === "Escape" && soundMenuOpen) { setSoundMenuOpen(false); soundMenuButton.current?.focus(); }
       const now = performance.now(); idle.current.touch(now);
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) idle.current.holdKey(event.key, now);
     }}
@@ -190,17 +200,20 @@ export default function GroovePlayer(props: Props) {
 
     <section className="v2-listening-room" aria-label="地球のレコードプレイヤー">
       <div className="v2-record-side">
+        {props.startup && !props.ready && !props.explore && <StartupStatus connection={props.startup} onRetry={props.onRetry} />}
         <div className="v2-record-topline"><span>EARTH SIDE / {local ? "LOCAL COLLECTION" : props.explore ? "EXPLORE" : "TEN-KOH 2"}</span><div className="v2-globe-options">{!local && <button type="button" aria-pressed={clouds} onClick={()=>props.onClouds?.(!clouds)} title="NASA観測画像の白い領域を薄く重ねます。雪や氷も含みます。音は変わりません。"><Cloud size={13}/> CLOUDS {clouds?"ON":"OFF"}</button>}</div></div>
         <RecordGlobe clouds={clouds && !local} cloudImageRef={props.cloudImageRef} position={local ? null : props.position} track={local ? undefined : props.track} playing={props.playing} centerToken={centerToken} followPosition={!local && followingLive} onViewInteraction={leaveLive} onScratch={scratch} onScratchWave={scratchWave} listeningPoint={props.explore?.point} onViewChange={viewChanged} canExplore={!!props.onExplore} onScratchStart={props.onScratchStart} onScratchRelease={props.onScratchRelease} onScratchEnd={props.onScratchEnd} />
+        <div className="v2-mobile-now"><span>{local ? "LOCAL / SYNTHETIC" : props.explore ? "EXPLORE" : "LIVE / TEN-KOH 2"}</span><strong>{loaded ? landscape.name : "PREPARING"}</strong></div>
         <div className="v2-touch-controls"><div>
           <span className="v2-eyebrow">{props.playing ? "RECORD" : "GLOBE"}</span>
 
           <span className="v2-scratch-source">{props.playing ? props.scratchReady ? "ROTATE + SCRATCH / LIVE SOUND" : "ROTATE + SCRATCH / PREVIEW" : "回転させて地球を眺める"}</span>
         </div><p>{props.onExplore ? props.playing ? "地球を回して、音に触れる。手を離すと、その流れのままてんこう2へ。" : "好きな場所へ回して、再生するとその場所を聴けます。" : "地球を回す動きで音をスクラッチ。LOCALの演奏は合成風景です。"}</p></div>
-        {!local&&<div className="v2-orbit-scale" title="地球は半径6371kmの球体近似。軌道高度は計算値を使用し、浮き具合を誇張していません。地形の凹凸は描いていません。"><span className="v2-equator-key">— EQUATOR 0°</span><span>ALT {props.position?.altitude?.toFixed(1)??"—"} km · HEIGHT ×1{orbitDisplayScale(props.position?.altitude)!=null?` · R ×${orbitDisplayScale(props.position?.altitude)!.toFixed(4)}`:""}</span></div>}<div className="v2-globe-tools"><p>{props.onExplore ? `CENTRE  ${coordinateText(viewPoint)}` : "そのまま聴く。ときどき、地球を回して音に触れる。"}</p><button type="button" className="v2-live-follow" data-following={followingSatellite} disabled={!props.position || local} onClick={returnLive} aria-label={followLabel} title={followLabel}><LocateFixed size={14} aria-hidden="true" /><MissionMark decorative /><span>{followingSatellite ? "追従中…" : "に帰還"}</span></button></div>
+        {!local&&<div className="v2-orbit-scale" title="地球は半径6371kmの球体近似。軌道高度は計算値を使用し、浮き具合を誇張していません。地形の凹凸は描いていません。"><span className="v2-equator-key">— EQUATOR 0°</span><span>ALT {props.position?.altitude?.toFixed(1)??"—"} km · HEIGHT ×1{orbitDisplayScale(props.position?.altitude)!=null?` · R ×${orbitDisplayScale(props.position?.altitude)!.toFixed(4)}`:""}</span></div>}<div className="v2-globe-tools"><p>{props.onExplore ? `CENTRE  ${coordinateText(viewPoint)}` : "そのまま聴く。ときどき、地球を回して音に触れる。"}</p><button type="button" className="v2-live-follow" data-following={followingSatellite} disabled={!props.position || local} onClick={returnLive} aria-label={followLabel} title={followLabel}><LocateFixed size={14} aria-hidden="true" /><MissionMark decorative /><span>{!props.position && !local ? "位置を取得中…" : followingSatellite ? "追従中…" : "に帰還"}</span></button></div>
       </div>
 
       <aside className="v2-track-side" aria-label="いま聴いている風景">
+        <div className="v2-track-overview">
         <div className="v2-mode-row"><span className={`v2-signal ${loaded ? "is-ready" : ""}`} /><span>{local ? "LOCAL / SHUFFLE" : props.explore ? "EXPLORE / SELECTED LAND" : "LIVE / ORBIT-DRIVEN"}</span><span className="v2-edition">02</span></div>
         <div className="v2-track-title"><p className="v2-eyebrow">{props.playing ? "NOW PLAYING" : loaded ? "READY TO LISTEN" : !local && props.position ? "POSITION READY / IMAGE PENDING" : "CONNECTING TO EARTH"}</p><h1>{loaded ? landscape.name : !local && props.position ? "Reading\nEarth." : "Finding\nour groove."}</h1><p>{loaded ? landscape.japanese : !local && props.position ? "衛星の位置は取得済み · 地表データ待ち" : "地球を聴く準備をしています"}<span> / {loaded ? landscape.code : "—"}</span></p></div>
         <div className="v2-track-credit"><span className="v2-cover-mark" aria-hidden="true"><AudioLines size={23} /></span><div><strong>{loaded ? motif : "EARTH GROOVE"}</strong><span>{loaded ? `with ${landscape.natural.toLowerCase()}` : "A continuous record of our planet"}</span></div></div>
@@ -209,15 +222,21 @@ export default function GroovePlayer(props: Props) {
           <span><Wind size={15} /> {loaded && props.features.wind !== null ? `${props.features.wind.toFixed(1)}` : "—"}<small>m/s</small></span>
           <span>{loaded ? props.features.tonality === "major" ? "MAJOR" : "MINOR" : "—"}<small>{loaded ? props.features.tonality === "major" ? "長調" : "短調" : "調"}</small></span>
         </div>
+        </div>
+        <section className="v2-primary-controls" aria-label="再生と音のスタイル">
         <div className="v2-mix-choice"><span className="v2-eyebrow">LISTENING STYLE</span><div role="group" aria-label="音のスタイル"><button type="button" aria-pressed={props.listeningMode === "ambient"} onClick={event => { if (props.listeningMode === "ambient") return; props.onListeningMode("ambient"); styleFeedback("ambient", event.currentTarget); }}>AMBIENT</button><button type="button" aria-pressed={props.listeningMode === "groove"} onClick={event => { if (props.listeningMode === "groove") return; props.onListeningMode("groove"); styleFeedback("groove", event.currentTarget); }}>GROOVE</button></div><p>{props.listeningMode === "ambient" ? "自然音に、ゆっくりほどける旋律。" : "地球の風景に、穏やかなビートを。"}</p></div>
-        <section className="v2-deck" aria-label="再生コントロール">
       <div className="v2-play-group"><button className="v2-play-button" type="button" aria-label={props.playing ? "停止して地球儀にする" : "再生してレコードにする"} aria-pressed={props.playing} disabled={!loaded && !props.playing} onClick={toggleRecord}>{props.playing ? <Pause size={23} fill="currentColor" /> : <Play size={23} fill="currentColor" />}</button><div><strong>{props.playing ? "Let the Earth play." : "Press play. Stay a while."}</strong><span role="status">{props.status}</span></div></div>
+          <button ref={soundMenuButton} className="v2-mobile-menu" type="button" aria-label="音と再生の詳細設定" aria-expanded={soundMenuOpen} aria-controls={soundMenuId} onClick={() => setSoundMenuOpen(value => !value)}><SlidersHorizontal size={20} /></button>
+        <div className="v2-secondary-controls" id={soundMenuId}>
+          <span className="v2-mobile-menu-title">SOUND SETTINGS</span>
+        <section className="v2-deck" aria-label="再生コントロール">
+
       <div className="v2-tempo"><div><span className="v2-eyebrow">TEMPO</span><strong>{bpm?.toFixed(0) ?? "—"}<small>BPM</small></strong></div><button type="button" aria-pressed={props.tempo.mode === "auto"} onClick={() => props.onTempo({ ...props.tempo, mode: props.tempo.mode === "auto" ? "manual" : "auto" })}>{props.tempo.mode === "auto" ? "AUTO / WIND" : "MANUAL"}</button></div>
       <label className="v2-volume"><Volume2 size={17} /><span className="v2-sr-only">音量</span><input type="range" min="0" max="100" value={props.volume} style={{"--range-fill":`${props.volume}%`} as CSSProperties} onChange={event => props.onVolume(Number(event.target.value))} /><output>{props.volume}</output></label>
       <details className="v2-settings"><summary aria-label="再生設定"><SlidersHorizontal size={18} /><span>SETTINGS</span></summary><div className="v2-settings-panel"><label htmlFor="v2-manual-tempo">手動BPM <output>{props.tempo.manualBpm}</output></label><input id="v2-manual-tempo" type="range" min="80" max="150" value={props.tempo.manualBpm} disabled={props.tempo.mode !== "manual"} onChange={event => props.onTempo({ mode: "manual", manualBpm: Number(event.target.value) })} /><p>AUTOは風速0〜20 m/sで、{props.listeningMode.toUpperCase()}は80〜{AUTO_BPM_MAX[props.listeningMode]} BPM。手動は80〜150 BPM。</p><label htmlFor="v2-nature-level">自然音の音量 <output>{props.natureLevel}</output></label><input id="v2-nature-level" type="range" min="0" max="100" value={props.natureLevel} onChange={event => props.onNatureLevel(Number(event.target.value))} /><p>旋律と和音の音量はそのまま、波や葉音だけ調整します。</p><button type="button" disabled={!props.playing} onClick={demoScratch}>スクラッチを試す</button><small>{touched ? "鳴っている音を、手の速度に合わせて連続して前後にこすります。非対応端末では合成音でプレビューします。" : "再生中、地球を回すと音も一緒にスクラッチします。"}</small>{props.onNext && <button type="button" onClick={props.onNext}>次の合成風景へ</button>}</div></details>
     </section>
 
-    {(props.needsReconnect || (!loaded && props.onRetry)) && <div className="v2-recovery" role="status"><span>{props.needsReconnect ? "音声が待機しています。再接続すると演奏を再開します。" : props.status}</span><button type="button" onClick={props.needsReconnect ? props.onReconnect : props.onRetry}><RotateCcw size={14} />{props.needsReconnect ? "音声を再接続" : "データを再取得"}</button></div>}
+
         <div className="v2-voice-strip" aria-label="演奏する4つのパート">{LAYERS.map(layer => {
           const resting = layer === "pulse" && rhythmResting;
           return <div key={layer} className={resting ? "is-resting" : undefined} style={{ "--voice-color": COLORS[layer] } as CSSProperties}
@@ -228,6 +247,9 @@ export default function GroovePlayer(props: Props) {
           </div>;
         })}</div>
         <p className="v2-source-note">{local ? "保存した合成風景を使います。衛星の現在位置・実際の気象とは連動しません。" : props.explore ? "自分で選んだ地点の画像と気象を音楽に。衛星の現在位置とは独立しています。" : "てんこう2の推定位置から、地表画像と気象を音楽に。"}</p>
+        </div>
+        </section>
+    {(props.needsReconnect || (!loaded && props.onRetry && !props.startup)) && <div className="v2-recovery" role="status"><span>{props.needsReconnect ? "音声が待機しています。再接続すると演奏を再開します。" : props.status}</span><button type="button" onClick={props.needsReconnect ? props.onReconnect : props.onRetry}><RotateCcw size={14} />{props.needsReconnect ? "音声を再接続" : "データを再取得"}</button></div>}
       </aside>
     </section>
 

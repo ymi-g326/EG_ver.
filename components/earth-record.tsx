@@ -1000,6 +1000,7 @@ export default function EarthRecord({ player = false }: { player?: boolean }) {
 
   return <>
     {player && <PlayerViews loading={(!position && orbitStatus === "connecting") || (!imageReady && !imageFailed) || (!!explorePoint && exploration.pending)} inspect={detailView} onChange={changeDetailView} touch={<GroovePlayer mode="live" features={playerFeatures} position={position} track={track} cloudImageRef={imageRef} clouds={clouds} onClouds={setClouds} playing={playing} ready={playerReady} volume={volume} levels={voiceLevels}
+      startup={{ orbit: orbitStatus, positionReady: !!position, imagery: imageReady ? "ready" : imageFailed ? imageRetryDelay(imageFailures) !== null ? "retrying" : "error" : "pending" }}
       explore={explorePoint ? { point: selectedReading?.point ?? null, target: explorePoint, pending: exploration.pending, weatherPending: selectedReading?.weatherPending ?? true, error: exploration.error } : null}
       onExplore={selectExplore} onLive={returnLive} autoLiveEnabled={!detailView && !!position && !activeAudition} onLiveReturnSound={() => audioRef.current?.liveReturnSound()}
       listeningMode={listeningMode} tempo={tempoSettings} runtime={tempoRuntime} status={playerStatus} observation={imageReady ? IMAGE_DATE : undefined} weatherTime={explorePoint ? selectedReading?.weatherTime : environment.weatherModelTime}

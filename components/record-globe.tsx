@@ -9,6 +9,13 @@ import { liveReturnView, LIVE_RETURN_GLIDE_MS } from "@/lib/live-return";
 import { planMomentumReturn, momentumReturnView, momentumReturnMotion, type MomentumReturnPlan } from "@/lib/momentum-return";
 import { projectGlobe, scratchVelocity, rotateGlobeView, type GeoPoint } from "@/lib/globe-geometry";
 import { ScratchWaveTracker, type ScratchWaveSource } from "@/lib/scratch-feedback";
+import { COMPACT_RENDER_QUERY, renderQuality } from "@/lib/render-quality";
+
+const GRID_LINES: GeoPoint[][] = [
+  ...[-60, -30, 30, 60].map(latitude => Array.from({ length: 181 }, (_, i) => ({ latitude, longitude: i * 2 - 180 }))),
+  ...Array.from({ length: 12 }, (_, j) => Array.from({ length: 91 }, (_, i) => ({ latitude: i * 2 - 90, longitude: j * 30 - 180 }))),
+];
+const EQUATOR = Array.from({ length: 361 }, (_, i) => ({ latitude: 0, longitude: i - 180 }));
 
 type Props = {
   position: OrbitalPoint | null;
@@ -73,13 +80,18 @@ export default function RecordGlobe(props: Props) {
     if (!context) return;
     const landProjection = globeLandProjection();
     const landPath = geoPath(landProjection, context);
+    const compact = window.matchMedia(COMPACT_RENDER_QUERY);
+    let quality = renderQuality(compact.matches, window.devicePixelRatio);
     const cloudCanvas = document.createElement("canvas");
-    cloudCanvas.width=160; cloudCanvas.height=160;
+    cloudCanvas.width=quality.cloudSize; cloudCanvas.height=quality.cloudSize;
     const cloudContext=cloudCanvas.getContext("2d");
+    let cloudPixels=cloudContext?.createImageData(quality.cloudSize, quality.cloudSize);
     let cloudSource="", cloudMask:Uint8Array|null=null, cloudView="", cloudPaint=0;
     const paintClouds=(state:Props, view:GeoPoint, time:number)=>{
       const image=state.cloudImageRef?.current;
       if(!cloudContext || !image?.naturalWidth)return false;
+      const size=quality.cloudSize;
+      if(cloudCanvas.width!==size){cloudCanvas.width=size;cloudCanvas.height=size;cloudPixels=cloudContext.createImageData(size,size);cloudView="";}
       const key=`${image.currentSrc}:${image.naturalWidth}`;
       if(key!==cloudSource){
         cloudSource=key;cloudMask=null;cloudView="";
@@ -93,13 +105,14 @@ export default function RecordGlobe(props: Props) {
       }
       if(!cloudMask)return false;
       const viewKey=`${view.longitude.toFixed(1)}:${view.latitude.toFixed(1)}`;
-      if(viewKey===cloudView || (cloudView && time-cloudPaint<64))return true;
+      if(viewKey===cloudView || (cloudView && time-cloudPaint<quality.cloudInterval))return true;
       cloudView=viewKey;cloudPaint=time;
-      const output=cloudContext.createImageData(160,160);
-      for(let y=0;y<160;y++)for(let x=0;x<160;x++){
-        const at=globeTextureSample((x+.5)/80-1,(y+.5)/80-1,view.longitude,view.latitude);
+      const output=cloudPixels!;
+      output.data.fill(0);
+      for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+        const at=globeTextureSample((x+.5)/(size/2)-1,(y+.5)/(size/2)-1,view.longitude,view.latitude);
         if(!at)continue;
-        const index=(y*160+x)*4, alpha=cloudMask[Math.min(179,Math.floor(at.v*180))*360+Math.min(359,Math.floor(at.u*360))];
+        const index=(y*size+x)*4, alpha=cloudMask[Math.min(179,Math.floor(at.v*180))*360+Math.min(359,Math.floor(at.u*360))];
         output.data[index]=220;output.data[index+1]=240;output.data[index+2]=238;
         output.data[index+3]=Math.round(alpha*.32*(.5+.5*at.depth));
       }
@@ -115,7 +128,11 @@ export default function RecordGlobe(props: Props) {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const draw = (time: number) => {
       if (time - previousPaint < 32) { frame = requestAnimationFrame(draw); return; }
+      if (document.hidden || !canvas.clientWidth || !canvas.clientHeight) {
+        previousTime = time; frame = requestAnimationFrame(draw); return;
+      }
       previousPaint = time;
+      quality = renderQuality(compact.matches, window.devicePixelRatio);
       const elapsed = time - previousTime || 16;
       previousTime = time;
       const state = latest.current;
@@ -172,7 +189,8 @@ export default function RecordGlobe(props: Props) {
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
       if (!width || !height) { frame = requestAnimationFrame(draw); return; }
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const dpr = quality.pixelRatio;
+      canvas.dataset.renderQuality = compact.matches ? "compact" : "full";
       if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
         canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
       }
@@ -189,10 +207,14 @@ export default function RecordGlobe(props: Props) {
         context.strokeStyle = (pointer.current || coast.current.active) && state.playing ? `rgba(190,243,122,${.12 + i * .008})` : `rgba(155,185,181,${i % 4 === 0 ? .14 : .055})`;
         context.lineWidth = .7; context.stroke();
       }
-      const orbitLine=(points:OrbitalPoint[],color:string,front:boolean,dashed=false)=>{
+      // Project each trajectory once, then reuse it for its near and far strokes.
+      const projectedTrack=state.track?{
+        past:state.track.past.map(point=>projectOrbit(point,view.longitude,view.latitude,state.position?.altitude)),
+        future:state.track.future.map(point=>projectOrbit(point,view.longitude,view.latitude,state.position?.altitude)),
+      }:null;
+      const orbitLine=(points:ReturnType<typeof projectOrbit>[],color:string,front:boolean,dashed=false)=>{
         context.beginPath();let previous:ReturnType<typeof projectOrbit>|null=null;
-        for(const point of points){
-          const p=projectOrbit(point,view.longitude,view.latitude,state.position?.altitude);
+        for(const p of points){
           if(previous){
             const a=previous.z>=0,b=p.z>=0;
             if(a===front && b===front){context.moveTo(previous.x*radius,previous.y*radius);context.lineTo(p.x*radius,p.y*radius);}
@@ -208,9 +230,9 @@ export default function RecordGlobe(props: Props) {
         context.setLineDash(dashed?[4,5]:[]);context.stroke();context.setLineDash([]);
       };
       // Draw the far orbit before the opaque Earth, preserving natural occlusion.
-      if(state.track){
-        orbitLine(state.track.past,"rgba(106,245,219,.32)",false);
-        orbitLine(state.track.future,"rgba(186,255,61,.27)",false,true);
+      if(projectedTrack){
+        orbitLine(projectedTrack.past,"rgba(106,245,219,.32)",false);
+        orbitLine(projectedTrack.future,"rgba(186,255,61,.27)",false,true);
       }
       const glow = context.createRadialGradient(-radius * .35, -radius * .4, 0, 0, 0, radius * 1.08);
       glow.addColorStop(0, "#213937"); glow.addColorStop(.7, "#102321"); glow.addColorStop(1, "#071313");
@@ -232,22 +254,22 @@ export default function RecordGlobe(props: Props) {
         context.strokeStyle = color; context.lineWidth = 1;
         context.setLineDash(dashed ? [3, 5] : []); context.stroke(); context.setLineDash([]);
       };
-      for (let lat = -60; lat <= 60; lat += 30) if (lat !== 0) line(Array.from({ length: 181 }, (_, i) => ({ latitude: lat, longitude: i * 2 - 180 })), "rgba(161,195,185,.12)");
-      for (let lon = -180; lon < 180; lon += 30) line(Array.from({ length: 91 }, (_, i) => ({ latitude: i * 2 - 90, longitude: lon })), "rgba(161,195,185,.12)");
+      for (const points of GRID_LINES) line(points, "rgba(161,195,185,.12)");
       if(state.clouds && paintClouds(state,view,time)){
-        context.save();context.imageSmoothingEnabled=true;context.filter="blur(.65px)";
+        context.save();context.imageSmoothingEnabled=true;
+        if(quality.refract)context.filter="blur(.65px)";
         context.drawImage(cloudCanvas,-radius*1.012,-radius*1.012,radius*2.024,radius*2.024);
         context.restore();
       }
       const shade = context.createLinearGradient(-radius, -radius, radius, radius);
       shade.addColorStop(0, "rgba(1,10,12,0)"); shade.addColorStop(.6, "rgba(1,10,12,.07)"); shade.addColorStop(1, "rgba(1,10,12,.8)");
       context.fillStyle = shade; context.fillRect(-radius, -radius, radius * 2, radius * 2);
-      line(Array.from({ length: 361 }, (_, i) => ({ latitude: 0, longitude: i - 180 })), "rgba(190,119,128,.5)");
+      line(EQUATOR, "rgba(190,119,128,.5)");
       context.restore();
       context.beginPath(); context.arc(0, 0, radius, 0, Math.PI * 2); context.strokeStyle = "rgba(163,218,199,.32)"; context.lineWidth = 1; context.stroke();
-      if(state.track){
-        orbitLine(state.track.past,"rgba(106,245,219,.92)",true);
-        orbitLine(state.track.future,"rgba(186,255,61,.64)",true,true);
+      if(projectedTrack){
+        orbitLine(projectedTrack.past,"rgba(106,245,219,.92)",true);
+        orbitLine(projectedTrack.future,"rgba(186,255,61,.64)",true,true);
       }
       if (state.position) {
         const p = projectOrbit(state.position,view.longitude,view.latitude);

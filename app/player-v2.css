@@ -532,3 +532,77 @@
 .v2-inspect-footer { gap:14px; }
 @media(max-width:1050px) { .v2-inspect-output { display:none; } .v2-inspect-footer > .v2-eyebrow { display:none; } .v2-inspect-footer .v2-volume { width:150px; } }
 @media(max-width:700px) { .v2-inspect-footer { flex-wrap:wrap; padding-top:15px; } .v2-inspect-footer .v2-volume { width:140px; } }
+
+/* Playback stays beside the record; deeper sound controls open on demand on phones. */
+.v2-boot { min-height:100svh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px; background:#0b1512; color:#d0dfd2; font-family:Arial,sans-serif; text-align:center; }
+.v2-boot span { color:#c7f483; font:12px monospace; letter-spacing:.2em; }
+.v2-boot strong { font-size:18px; font-weight:400; }
+.v2-boot small { color:#8eaa9d; font-size:12px; }
+.v2-primary-controls > .v2-play-group { margin-top:20px; padding-top:17px; border-top:1px solid #bad8c530; }
+.v2-mobile-menu, .v2-mobile-now, .v2-mobile-menu-title { display:none; }
+.v2-secondary-controls .v2-deck { margin-top:0; border-top:0; }
+.v2-startup { margin:12px 0 20px; padding:18px; border:1px solid #6af5db40; background:#6af5db07; color:#b9d5ca; }
+.v2-startup-heading { display:flex; align-items:center; gap:13px; }
+.v2-startup-heading > svg { flex-shrink:0; color:#6af5db; }
+.v2-startup-heading span { display:block; font:9px/1.5 monospace; letter-spacing:.08em; color:#80a99a; }
+.v2-startup-heading strong { display:block; margin-top:5px; font-size:16px; font-weight:400; line-height:1.6; }
+.v2-startup ol { display:flex; flex-wrap:wrap; gap:7px 16px; padding:0; margin:14px 0 0; list-style:none; }
+.v2-startup li { display:flex; align-items:center; gap:5px; font-size:10px; color:#7e978e; }
+.v2-startup li[data-state="active"] { color:#b6d3c5; }
+.v2-startup li[data-state="done"] { color:#c7f483; }
+.v2-startup li[data-state="error"], .v2-startup[data-state="error"] .v2-startup-heading > svg { color:#d5ba89; }
+.v2-startup li > i { width:11px; height:11px; border:1px solid #799e8b55; border-radius:50%; }
+.v2-startup p { font-size:11px; line-height:1.7; color:#8eaa9d; margin:12px 0 0; }
+.v2-startup-spinner { animation:v2-startup-turn 1.8s linear infinite; }
+.v2-startup-actions { display:flex; align-items:center; gap:18px; margin-top:12px; }
+.v2-startup-actions button, .v2-startup-actions a { display:flex; align-items:center; gap:6px; min-height:44px; background:none; color:#c7f483; font-size:12px; }
+.v2-startup-actions button { padding:0 12px; border:1px solid #c7f48355; }
+@keyframes v2-startup-turn { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .v2-startup-spinner { animation:none; } }
+@media(max-width:700px) {
+  .v2-persistent-switch { position:absolute; }
+  .v2-listening-room { align-items:stretch; }
+  .v2-track-side { display:contents; }
+  .v2-primary-controls { order:-1; position:sticky; top:env(safe-area-inset-top,0px); z-index:40; display:flex; align-items:center; gap:12px; width:100%; min-height:70px; padding:10px 0; background:#0b1512; border-bottom:1px solid #bad8c530; }
+  .v2-primary-controls > .v2-play-group { order:-1; margin:0; padding:0; border:0; }
+  .v2-primary-controls .v2-play-button { width:48px; height:48px; }
+  .v2-primary-controls .v2-play-group > div { display:none; }
+  .v2-primary-controls .v2-mix-choice { flex:1; margin:0; min-width:0; }
+  .v2-primary-controls .v2-mix-choice > .v2-eyebrow, .v2-primary-controls .v2-mix-choice p { display:none; }
+  .v2-primary-controls .v2-mix-choice > div { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin:0; }
+  .v2-primary-controls .v2-mix-choice button { min-height:44px; padding:0 5px; font-size:11px; border:1px solid transparent; }
+  .v2-primary-controls .v2-mix-choice button[aria-pressed="true"] { background:#c7f4830d; border-color:#c7f48355; }
+  .v2-mobile-menu { display:grid; place-items:center; flex-shrink:0; width:44px; height:44px; border:1px solid #8ba89735; background:transparent; color:#a3bba9; }
+  .v2-mobile-menu[aria-expanded="true"] { color:#c7f483; border-color:#c7f48388; }
+  .v2-track-overview, .v2-secondary-controls { display:none; }
+  .groove-v2[data-sound-menu="true"] .v2-secondary-controls { display:block; }
+  .v2-secondary-controls { position:absolute; top:100%; left:0; right:0; max-height:65svh; overflow-y:auto; overscroll-behavior:contain; padding:18px; background:#11201b; border:1px solid #8ba89755; box-shadow:0 20px 50px #0009; }
+  .v2-mobile-menu-title { display:block; color:#a6c0b0; font:10px monospace; letter-spacing:.12em; margin-bottom:8px; }
+  .v2-secondary-controls .v2-deck { margin:0; padding-top:12px; }
+  .v2-secondary-controls .v2-tempo { grid-column:1 / -1; justify-content:space-between; }
+  .v2-secondary-controls .v2-volume { min-height:44px; width:100%; max-width:none; }
+  .v2-secondary-controls .v2-settings summary { min-height:44px; }
+  .v2-secondary-controls .v2-settings[open] { grid-column:1 / -1; justify-self:stretch; }
+  .v2-secondary-controls .v2-settings-panel { position:static; width:100%; max-height:none; box-sizing:border-box; padding:16px; }
+  .v2-mobile-now { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:5px 12px; margin:2px 0 16px; color:#86a593; font:9px/1.5 monospace; }
+  .v2-mobile-now strong { color:#d0dfd2; font:400 18px/1.2 Georgia,serif; }
+  .v2-record-topline { margin-top:14px; }
+  .v2-record-topline button { min-height:32px; }
+  .v2-globe { width:min(100%,max(205px,calc((100svh - 450px)*1.13))); aspect-ratio:1.13; margin:0 auto; }
+  .v2-touch-controls { margin:0 0 9px; }
+  .v2-touch-controls > div { gap:8px; }
+  .v2-touch-controls p { margin:6px 0 0; line-height:1.6; }
+  .v2-orbit-scale, .v2-globe-tools > p { display:none; }
+  .v2-globe-tools { justify-content:flex-end; padding:0 0 10px; }
+  .v2-globe-tools .v2-live-follow { min-height:40px; margin:0; }
+  .v2-track-side > .v2-recovery { order:1; min-height:44px; }
+  .v2-footer { flex-direction:row; flex-wrap:wrap; align-items:center; min-height:48px; padding:10px 0; margin-top:4px; border-top:1px solid #bad8c530; }
+  .v2-footer nav a, .v2-footer nav button { min-height:40px; display:flex; align-items:center; }
+  .v2-startup { margin:14px 0 6px; padding:14px; }
+  .v2-startup-heading strong { font-size:14px; }
+}
+@media(max-width:700px), (pointer:coarse) {
+  .v2-style-surface { filter:none !important; }
+  .v2-style-wave { mix-blend-mode:normal; }
+}
+@media(max-width:360px) { .v2-views .v2-brand img { width:88px; } }

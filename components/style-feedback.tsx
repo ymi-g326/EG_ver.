@@ -4,13 +4,14 @@ import { createContext, useCallback, useContext, useEffect, useId, useRef, type 
 import { STYLE_FEEDBACK, styleWaveRim, type FeedbackStyle } from "@/lib/style-feedback";
 import { activeStyleWaves, appendStyleWave, sampleStyleWaves, scratchWaveSpec, WAVE_DISPLACEMENT_SCALE, type StyleWave } from "@/lib/style-waves";
 import type { ScratchWaveSource } from "@/lib/scratch-feedback";
+import { COMPACT_RENDER_QUERY, renderQuality } from "@/lib/render-quality";
 
 const FeedbackContext = createContext<(style: FeedbackStyle, button: HTMLElement) => void>(() => undefined);
 const ScratchFeedbackContext = createContext<(style: FeedbackStyle, source: ScratchWaveSource) => void>(() => undefined);
 export const useStyleFeedback = () => useContext(FeedbackContext);
 export const useScratchFeedback = () => useContext(ScratchFeedbackContext);
 
-/** The live DOM itself refracts; one bounded wave field handles overlapping gestures. */
+/** Touch screens draw only the wave rims; desktop can also refract the live DOM. */
 export default function StyleFeedback({ children }: { children: ReactNode }) {
   const id = `eg-style-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -34,7 +35,9 @@ export default function StyleFeedback({ children }: { children: ReactNode }) {
     if (document.hidden || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const surface = surfaceRef.current, overlay = overlayRef.current, image = imageRef.current;
     if (!surface || !overlay || !image) return;
-    const bounds = surface.getBoundingClientRect();
+    const quality = renderQuality(window.matchMedia(COMPACT_RENDER_QUERY).matches);
+    const bounds = quality.refract ? surface.getBoundingClientRect()
+      : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
     const width = window.innerWidth, height = window.innerHeight;
     const x = Math.max(0, Math.min(width, source.x)), y = Math.max(0, Math.min(height, source.y));
     const reach = Math.max(Math.hypot(x, y), Math.hypot(width - x, y), Math.hypot(x, height - y), Math.hypot(width - x, height - y));
@@ -44,17 +47,24 @@ export default function StyleFeedback({ children }: { children: ReactNode }) {
     wavesRef.current = appendStyleWave(wavesRef.current, {
       style, x, y, kind, ...spec, started: performance.now(),
       strength: kind === "style" ? 1 : source.strength * .8,
-    }, kind === "scratch" && source.continuation);
+    }, kind === "scratch" && source.continuation).slice(-quality.waveLimit);
     if (frameRef.current || !wavesRef.current.length) return;
-    const map = document.createElement("canvas"), factor = 192 / Math.max(bounds.width, bounds.height);
-    map.width = Math.max(2, Math.round(bounds.width * factor)); map.height = Math.max(2, Math.round(bounds.height * factor));
-    const mapContext = map.getContext("2d"), context = overlay.getContext("2d");
-    if (!mapContext || !context) { stop(); return; }
-    const pixels = mapContext.createImageData(map.width, map.height);
-    image.setAttribute("width", String(bounds.width)); image.setAttribute("height", String(bounds.height));
-    displacementRef.current?.setAttribute("scale", String(WAVE_DISPLACEMENT_SCALE));
+    const context = overlay.getContext("2d");
+    if (!context) { stop(); return; }
+    // Encoding a displacement PNG and filtering the full page on every paint is
+    // especially costly on mobile. This branch allocates neither on touch screens.
+    const map = quality.refract ? document.createElement("canvas") : null;
+    if (map) {
+      const factor = 192 / Math.max(bounds.width, bounds.height);
+      map.width = Math.max(2, Math.round(bounds.width * factor)); map.height = Math.max(2, Math.round(bounds.height * factor));
+      image.setAttribute("width", String(bounds.width)); image.setAttribute("height", String(bounds.height));
+      displacementRef.current?.setAttribute("scale", String(WAVE_DISPLACEMENT_SCALE));
+      surface.style.willChange = "filter";
+    }
+    const mapContext = map?.getContext("2d");
+    const pixels = map && mapContext ? mapContext.createImageData(map.width, map.height) : null;
     overlay.width = width; overlay.height = height; overlay.hidden = false;
-    surface.style.willChange = "filter";
+    overlay.dataset.renderer = quality.refract ? "refraction" : "ripple";
     let painted = -Infinity;
     const draw = () => {
       // Birth and paint use the same clock, including pointer events between frame callbacks.
@@ -68,24 +78,27 @@ export default function StyleFeedback({ children }: { children: ReactNode }) {
         surface.dataset.waveKind = waves.at(-1)!.kind;
         surface.dataset.waveCount = String(waves.length);
         surface.dataset.waveReach = String(Math.round(waves.at(-1)!.reach));
-        for (let row = 0; row < map.height; row++) for (let col = 0; col < map.width; col++) {
-          const vector = sampleStyleWaves(waves,
-            bounds.left + (col + .5) / map.width * bounds.width,
-            bounds.top + (row + .5) / map.height * bounds.height);
-          const at = (row * map.width + col) * 4;
-          pixels.data[at] = 255 * (.5 + vector.x / WAVE_DISPLACEMENT_SCALE);
-          pixels.data[at + 1] = 255 * (.5 + vector.y / WAVE_DISPLACEMENT_SCALE);
-          pixels.data[at + 2] = 128; pixels.data[at + 3] = 255;
+        if (map && mapContext && pixels) {
+          for (let row = 0; row < map.height; row++) for (let col = 0; col < map.width; col++) {
+            const vector = sampleStyleWaves(waves,
+              bounds.left + (col + .5) / map.width * bounds.width,
+              bounds.top + (row + .5) / map.height * bounds.height);
+            const at = (row * map.width + col) * 4;
+            pixels.data[at] = 255 * (.5 + vector.x / WAVE_DISPLACEMENT_SCALE);
+            pixels.data[at + 1] = 255 * (.5 + vector.y / WAVE_DISPLACEMENT_SCALE);
+            pixels.data[at + 2] = 128; pixels.data[at + 3] = 255;
+          }
+          mapContext.putImageData(pixels, 0, 0); image.setAttribute("href", map.toDataURL("image/png"));
+          surface.style.filter = `url(#${id})`;
         }
-        mapContext.putImageData(pixels, 0, 0); image.setAttribute("href", map.toDataURL("image/png"));
-        surface.style.filter = `url(#${id})`;
         context.clearRect(0, 0, width, height);
         for (const wave of waves) {
           const { progress, style } = wave, detail = wave.detail ?? 1;
           const life = Math.min(1, progress / .035, (1 - progress) / .22);
           context.strokeStyle = style === "ambient" ? "#6af5db" : "#c7f483";
-          context.shadowColor = context.strokeStyle; context.shadowBlur = style === "ambient" ? 15 : 10;
-          for (const [offset, weight] of [[0, 1], [style === "ambient" ? 54 : 32, .45], [96, .18]]) {
+          context.shadowColor = context.strokeStyle; context.shadowBlur = quality.waveShadow ? style === "ambient" ? 15 : 10 : 0;
+          const rims = [[0, 1], [style === "ambient" ? 54 : 32, .45], [96, .18]];
+          for (const [offset, weight] of quality.refract ? rims : rims.slice(0, 2)) {
             const radius = progress * wave.reach * 1.25 - offset * detail;
             if (radius <= 0) continue;
             const opacity = wave.kind === "scratch" ? Math.max(.65, wave.strength) : wave.strength;
@@ -93,7 +106,7 @@ export default function StyleFeedback({ children }: { children: ReactNode }) {
             context.lineWidth = (style === "ambient" ? 1.2 : 2) * Math.sqrt(detail);
             context.lineJoin = "round";
             context.beginPath();
-            const segments = style === "ambient" ? 180 : 224;
+            const segments = quality.refract ? style === "ambient" ? 180 : 224 : quality.waveSegments;
             for (let step = 0; step <= segments; step++) {
               const angle = step / segments * Math.PI * 2;
               const jitter = styleWaveRim(style, angle, progress) * detail * Math.min(1, radius / (60 * detail));
@@ -118,13 +131,14 @@ export default function StyleFeedback({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const quality = window.matchMedia(COMPACT_RENDER_QUERY);
     window.addEventListener("resize", stop); window.addEventListener("scroll", stop, { passive: true });
     window.addEventListener("blur", stop);
-    document.addEventListener("visibilitychange", stop); motion.addEventListener("change", stop);
+    document.addEventListener("visibilitychange", stop); motion.addEventListener("change", stop); quality.addEventListener("change", stop);
     return () => {
       stop(); window.removeEventListener("resize", stop); window.removeEventListener("scroll", stop);
       window.removeEventListener("blur", stop);
-      document.removeEventListener("visibilitychange", stop); motion.removeEventListener("change", stop);
+      document.removeEventListener("visibilitychange", stop); motion.removeEventListener("change", stop); quality.removeEventListener("change", stop);
     };
   }, [stop]);
 

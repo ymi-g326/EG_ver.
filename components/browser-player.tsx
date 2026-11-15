@@ -6,5 +6,5 @@ import { useEffect, useState, type ReactNode } from "react";
 export default function BrowserPlayer({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  return mounted ? children : <main aria-busy="true" aria-label="EARTH GROOVE loading" />;
+  return mounted ? children : <main className="v2-boot" role="status"><span>EARTH GROOVE</span><strong>プレイヤーを起動中</strong><small>地球を聴く準備をしています。</small></main>;
 }
